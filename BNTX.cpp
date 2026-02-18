@@ -1,8 +1,4 @@
-#pragma once
-
 #include <fstream>
-#include <DirectXTex.h>
-
 #include "BNTX.hpp"
 #include "tegra_swizzle.hpp"
 

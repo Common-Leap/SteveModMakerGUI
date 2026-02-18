@@ -1,6 +1,5 @@
-#pragma once
-
 #include <vector>
+#include <iostream>
 #include <curl/curl.h>
 #include <rapidjson/document.h>
 
@@ -99,14 +98,46 @@ bool GetModel(const std::string& username) {
 	rapidjson::Document document;
 	document.Parse(res.c_str());
 
-	res = CurlDownloadToString("https://sessionserver.mojang.com/session/minecraft/profile/" + (std::string)(document["id"].GetString()));
+	if (document.HasParseError()) {
+		std::cerr << "Error: Failed to parse player profile response: " << res << std::endl;
+		return false;
+	}
+	if (!document.IsObject() || !document.HasMember("id")) {
+		std::cerr << "Error: Invalid player profile response for " << username << std::endl;
+		return false;
+	}
+
+	std::string uuid = document["id"].GetString();
+	res = CurlDownloadToString("https://sessionserver.mojang.com/session/minecraft/profile/" + uuid);
 
 	document.Parse(res.c_str());
+	if (document.HasParseError()) {
+		std::cerr << "Error: Failed to parse session response" << std::endl;
+		return false;
+	}
+	if (!document.IsObject() || !document.HasMember("properties") || !document["properties"].IsArray() || document["properties"].Size() == 0) {
+		std::cerr << "Error: Invalid session response or no properties found" << std::endl;
+		return false;
+	}
+
+	if (!document["properties"][0].IsObject() || !document["properties"][0].HasMember("value")) {
+		std::cerr << "Error: Invalid property data" << std::endl;
+		return false;
+	}
+
 	res = base64_decode(document["properties"][0]["value"].GetString());
 
 	document.Parse(res.c_str());
+	if (document.HasParseError()) {
+		std::cerr << "Error: Failed to parse decoded texture data" << std::endl;
+		return false;
+	}
+	if (!document.IsObject() || !document.HasMember("textures")) {
+		std::cerr << "Error: No textures found in profile" << std::endl;
+		return false;
+	}
 
-	if (document["textures"]["SKIN"]["metadata"].IsObject())
+	if (document["textures"].HasMember("SKIN") && document["textures"]["SKIN"].IsObject() && document["textures"]["SKIN"].HasMember("metadata") && document["textures"]["SKIN"]["metadata"].IsObject())
 		return (std::string)document["textures"]["SKIN"]["metadata"]["model"].GetString() == "slim";
 	else
 		return false;
@@ -118,16 +149,57 @@ cv::Mat DownloadSkin(const std::string& username) {
 	rapidjson::Document document;
 	document.Parse(res.c_str());
 
-	res = CurlDownloadToString("https://sessionserver.mojang.com/session/minecraft/profile/" + (std::string)(document["id"].GetString()));
+	if (document.HasParseError()) {
+		std::cerr << "Error: Failed to parse player profile response: " << res << std::endl;
+		return cv::Mat();
+	}
+	if (!document.IsObject() || !document.HasMember("id")) {
+		std::cerr << "Error: Invalid player profile response for " << username << std::endl;
+		return cv::Mat();
+	}
+
+	std::string uuid = document["id"].GetString();
+	res = CurlDownloadToString("https://sessionserver.mojang.com/session/minecraft/profile/" + uuid);
 
 	document.Parse(res.c_str());
+	if (document.HasParseError()) {
+		std::cerr << "Error: Failed to parse session response" << std::endl;
+		return cv::Mat();
+	}
+	if (!document.IsObject() || !document.HasMember("properties") || !document["properties"].IsArray() || document["properties"].Size() == 0) {
+		std::cerr << "Error: Invalid session response or no properties found" << std::endl;
+		return cv::Mat();
+	}
+
+	if (!document["properties"][0].IsObject() || !document["properties"][0].HasMember("value")) {
+		std::cerr << "Error: Invalid property data" << std::endl;
+		return cv::Mat();
+	}
+
 	res = base64_decode(document["properties"][0]["value"].GetString());
 
 	document.Parse(res.c_str());
+	if (document.HasParseError()) {
+		std::cerr << "Error: Failed to parse decoded texture data" << std::endl;
+		return cv::Mat();
+	}
+	if (!document.IsObject() || !document.HasMember("textures")) {
+		std::cerr << "Error: No textures found in profile" << std::endl;
+		return cv::Mat();
+	}
+
+	if (!document["textures"].HasMember("SKIN") || !document["textures"]["SKIN"].IsObject() || !document["textures"]["SKIN"].HasMember("url")) {
+		std::cerr << "Error: No skin texture URL found" << std::endl;
+		return cv::Mat();
+	}
 
 	std::string URL = document["textures"]["SKIN"]["url"].GetString();
 
-	return CurlDownloadToMat(URL);
+	cv::Mat result = CurlDownloadToMat(URL);
+	if (result.empty()) {
+		std::cerr << "Error: Failed to download skin texture" << std::endl;
+	}
+	return result;
 }
 
 cv::Mat ConvertToModernSkin(cv::Mat& skin, bool model) {

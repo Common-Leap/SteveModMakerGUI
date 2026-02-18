@@ -1,10 +1,7 @@
-#define NOMINMAX
-
 #include <iostream>
 #include <filesystem>
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-#include <DirectXTex.h>
 
 #include "Nutexb.hpp"
 #include "BNTX.hpp"
@@ -16,9 +13,10 @@ cv::Mat CreateRender(cv::Mat& skin, bool model) {
 
 	if (model)
 	{
-		cv::Mat HEAD_SHADOW = cv::imread("./Resources/HEAD_SHADOW.png", cv::IMREAD_UNCHANGED);
-		cv::Mat LEG_SHADOW = cv::imread("./Resources/LEG_SHADOW.png", cv::IMREAD_UNCHANGED);
-		cv::Mat LIGHTING = cv::imread("./Resources/LIGHTING_EXP.png", cv::IMREAD_UNCHANGED);
+		std::string res_path(RESOURCE_PATH);
+		cv::Mat HEAD_SHADOW = cv::imread(res_path + "/HEAD_SHADOW.png", cv::IMREAD_UNCHANGED);
+		cv::Mat LEG_SHADOW = cv::imread(res_path + "/LEG_SHADOW.png", cv::IMREAD_UNCHANGED);
+		cv::Mat LIGHTING = cv::imread(res_path + "/LIGHTING_EXP.png", cv::IMREAD_UNCHANGED);
 
 		cv::Mat headfront = CropAndScale(skin, cv::Rect(8, 8, 8, 8));
 		cv::Mat headside = CropAndScale(skin, cv::Rect(0, 8, 8, 8));
@@ -147,9 +145,10 @@ cv::Mat CreateRender(cv::Mat& skin, bool model) {
 	}
 	else
 	{
-		cv::Mat HEAD_SHADOW = cv::imread("./Resources/HEAD_SHADOW.png", cv::IMREAD_UNCHANGED);
-		cv::Mat LEG_SHADOW = cv::imread("./Resources/LEG_SHADOW.png", cv::IMREAD_UNCHANGED);
-		cv::Mat LIGHTING = cv::imread("./Resources/LIGHTING_EXP.png", cv::IMREAD_UNCHANGED);
+		std::string res_path(RESOURCE_PATH);
+		cv::Mat HEAD_SHADOW = cv::imread(res_path + "/HEAD_SHADOW.png", cv::IMREAD_UNCHANGED);
+		cv::Mat LEG_SHADOW = cv::imread(res_path + "/LEG_SHADOW.png", cv::IMREAD_UNCHANGED);
+		cv::Mat LIGHTING = cv::imread(res_path + "/LIGHTING_EXP.png", cv::IMREAD_UNCHANGED);
 
 		cv::Mat headfront = CropAndScale(skin, cv::Rect(8, 8, 8, 8));
 		cv::Mat headside = CropAndScale(skin, cv::Rect(0, 8, 8, 8));
@@ -280,19 +279,49 @@ cv::Mat CreateRender(cv::Mat& skin, bool model) {
 
 int main(int argc, char* argv[]) {
 
-	HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-
 	if (argc < 3) {
-		std::cout << "SteveModMaker: A tool for generating Steve/Alex mods for Super Smash Bros. Ultimate from Minecraft: Java Edition Usernames.";
+		std::cout << "Usage: SteveModMaker <minecraft_username> <slot_number> [arm_type]" << std::endl;
+		std::cout << "  minecraft_username: Your Minecraft Java Edition username" << std::endl;
+		std::cout << "  slot_number: Costume slot (1-8)" << std::endl;
+		std::cout << "  arm_type: 'big' for big arms (default) or 'small' for small arms" << std::endl;
 		return -1;
 	}
 
-	// TODO: Handle this having an unexpected value.
-	std::string C0X = argv[2]+1;
-	uint8_t C0X_ = std::stoi(argv[2]+1); // Ultimate caps costume indices at 255.
+	// Parse slot number (1-8)
+	int slot_input = std::stoi(argv[2]);
+	if (slot_input < 1 || slot_input > 8) {
+		std::cout << "Error: Slot number must be between 1 and 8" << std::endl;
+		return -1;
+	}
+	
+	uint8_t C0X_ = slot_input - 1; // Convert 1-8 to 0-7
+	
+	// Format as two-digit string (00-07)
+	char buffer[3];
+	snprintf(buffer, sizeof(buffer), "%02d", C0X_);
+	std::string C0X(buffer);
+	
+	// Parse arm type (big or small, default: big)
+	std::string arm_type = "big";
+	if (argc >= 4) {
+		arm_type = argv[3];
+		if (arm_type != "big" && arm_type != "small") {
+			std::cout << "Error: arm_type must be 'big' or 'small'" << std::endl;
+			return -1;
+		}
+	}
+	std::cout << "[SteveModMaker::Main] Using " << arm_type << " arms template" << std::endl;
 
+	std::cout << "[SteveModMaker::Main] Downloading skin for " << argv[1] << "..." << std::endl;
 	cv::Mat skin = DownloadSkin(argv[1]);
+	if (skin.empty()) {
+		std::cerr << "[SteveModMaker::Main] Failed to download skin" << std::endl;
+		return -1;
+	}
+
+	std::cout << "[SteveModMaker::Main] Determining player model..." << std::endl;
 	bool model = GetModel(argv[1]);
+	
 	skin = ConvertToModernSkin(skin, model);
 
 	std::cout << "[SteveModMaker::Main] Downloaded Skin." << std::endl;
@@ -307,50 +336,50 @@ int main(int argc, char* argv[]) {
 
 	std::cout << "[SteveModMaker::Main] Creating output directories..." << std::endl;
 
-	if (!std::filesystem::exists("./patch/fighter/pickel/model/body/c" + C0X)) {
-		std::filesystem::create_directories("./patch/fighter/pickel/model/body/c" + C0X);
+	// Copy fighter template files from arm type templates
+	std::string template_dir = "/home/leap/Workshop/fighter/pickel/model/body/c[00-07] (" + arm_type + " arms)";
+	std::string target_slot = "./patch/fighter/pickel/model/body/c" + C0X;
+	
+	if (std::filesystem::exists(template_dir)) {
+		std::cout << "[SteveModMaker::Main] Copying fighter template files..." << std::endl;
+		std::filesystem::create_directories(target_slot);
+		
+		// Copy all template files except the texture
+		for (const auto& entry : std::filesystem::directory_iterator(template_dir)) {
+			std::string filename = entry.path().filename().string();
+			if (filename != "def_pickel_001_col.nutexb") {
+				std::filesystem::copy_file(entry.path(), target_slot + "/" + filename, std::filesystem::copy_options::overwrite_existing);
+			}
+		}
+	} else {
+		std::filesystem::create_directories(target_slot);
 	}
-	if (!std::filesystem::exists("./patch/ui/replace_patch/chara/chara_0/")) {
-		std::filesystem::create_directories("./patch/ui/replace_patch/chara/chara_0");
-	}
-	if (!std::filesystem::exists("./patch/ui/replace_patch/chara/chara_1/")) {
-		std::filesystem::create_directories("./patch/ui/replace_patch/chara/chara_1");
-	}
-	if (!std::filesystem::exists("./patch/ui/replace_patch/chara/chara_2/")) {
-		std::filesystem::create_directories("./patch/ui/replace_patch/chara/chara_2");
-	}
-	if (!std::filesystem::exists("./patch/ui/replace_patch/chara/chara_3/")) {
-		std::filesystem::create_directories("./patch/ui/replace_patch/chara/chara_3");
-	}
-	if (!std::filesystem::exists("./patch/ui/replace_patch/chara/chara_4/")) {
-		std::filesystem::create_directories("./patch/ui/replace_patch/chara/chara_4");
-	}
-	if (!std::filesystem::exists("./patch/ui/replace_patch/chara/chara_5/")) {
-		std::filesystem::create_directories("./patch/ui/replace_patch/chara/chara_5");
-	}
-	if (!std::filesystem::exists("./patch/ui/replace_patch/chara/chara_6/")) {
-		std::filesystem::create_directories("./patch/ui/replace_patch/chara/chara_6");
-	}
-	if (!std::filesystem::exists("./patch/ui/replace_patch/chara/chara_7/")) {
-		std::filesystem::create_directories("./patch/ui/replace_patch/chara/chara_7");
-	}
+	
+	// Ensure UI directories exist for character select screen files
+	std::filesystem::create_directories("./patch/ui/replace_patch/chara/chara_0");
+	std::filesystem::create_directories("./patch/ui/replace_patch/chara/chara_1");
+	std::filesystem::create_directories("./patch/ui/replace_patch/chara/chara_2");
+	std::filesystem::create_directories("./patch/ui/replace_patch/chara/chara_3");
+	std::filesystem::create_directories("./patch/ui/replace_patch/chara/chara_4");
+	std::filesystem::create_directories("./patch/ui/replace_patch/chara/chara_6");
 
 	cv::Mat chara_0;
 	cv::Mat chara_1;
 	cv::Mat chara_4;
 
-	cv::Mat chara_2 = cv::imread("./chara_masks/chara_2_pickel_00.png", cv::IMREAD_UNCHANGED);
-	cv::Mat chara_4_mask = cv::imread("./chara_masks/chara_4_mask.png", cv::IMREAD_UNCHANGED);
+	std::string masks_path(CHARA_MASKS_PATH);
+	cv::Mat chara_2 = cv::imread(masks_path + "/chara_2_pickel_00.png", cv::IMREAD_UNCHANGED);
+	cv::Mat chara_4_mask = cv::imread(masks_path + "/chara_4_mask.png", cv::IMREAD_UNCHANGED);
 
 	if (C0X_ % 2 == 0) { // Uses a steve slot.
-		chara_0 = cv::imread("./chara_masks/chara_0_pickel_00.png", cv::IMREAD_UNCHANGED);
-		chara_1 = cv::imread("./chara_masks/chara_1_pickel_00.png", cv::IMREAD_UNCHANGED);
-		chara_4 = cv::imread("./chara_masks/chara_4_pickel_00.png", cv::IMREAD_UNCHANGED);
+		chara_0 = cv::imread(masks_path + "/chara_0_pickel_00.png", cv::IMREAD_UNCHANGED);
+		chara_1 = cv::imread(masks_path + "/chara_1_pickel_00.png", cv::IMREAD_UNCHANGED);
+		chara_4 = cv::imread(masks_path + "/chara_4_pickel_00.png", cv::IMREAD_UNCHANGED);
 	}
 	else {
-		chara_0 = cv::imread("./chara_masks/chara_0_pickel_01.png", cv::IMREAD_UNCHANGED);
-		chara_1 = cv::imread("./chara_masks/chara_1_pickel_01.png", cv::IMREAD_UNCHANGED);
-		chara_4 = cv::imread("./chara_masks/chara_4_pickel_01.png", cv::IMREAD_UNCHANGED);
+		chara_0 = cv::imread(masks_path + "/chara_0_pickel_01.png", cv::IMREAD_UNCHANGED);
+		chara_1 = cv::imread(masks_path + "/chara_1_pickel_01.png", cv::IMREAD_UNCHANGED);
+		chara_4 = cv::imread(masks_path + "/chara_4_pickel_01.png", cv::IMREAD_UNCHANGED);
 	}
 
 	std::cout << "[SteveModMaker::Main] Creating chara_0 image..." << std::endl;
@@ -397,7 +426,7 @@ int main(int argc, char* argv[]) {
 	// chara_5
 	if (C0X_ == 0) {
 		std::cout << "[SteveModMaker::Main] Creating chara_5 image..." << std::endl;
-		cv::Mat chara_5 = cv::imread("./chara_masks/chara_5_pickel_00.png", cv::IMREAD_UNCHANGED);
+		cv::Mat chara_5 = cv::imread(masks_path + "/chara_5_pickel_00.png", cv::IMREAD_UNCHANGED);
 
 		cv::Mat render_cpy(267, 527, CV_8UC4);
 		cv::resize(base_render, render_cpy, cv::Size(267, 527), 0, 0, cv::INTER_AREA);
@@ -408,7 +437,7 @@ int main(int argc, char* argv[]) {
 	}
 	else if (C0X_ == 1) {
 		std::cout << "[SteveModMaker::Main] Creating chara_5 image..." << std::endl;
-		cv::Mat chara_5 = cv::imread("./chara_masks/chara_5_pickel_01.png", cv::IMREAD_UNCHANGED);
+		cv::Mat chara_5 = cv::imread(masks_path + "/chara_5_pickel_01.png", cv::IMREAD_UNCHANGED);
 
 		cv::Mat render_cpy(267, 527, CV_8UC4);
 		cv::resize(base_render, render_cpy, cv::Size(267, 527), 0, 0, cv::INTER_AREA);
@@ -428,13 +457,12 @@ int main(int argc, char* argv[]) {
 	 	BNTX bntx(chara_6, "chara_6_pickel_" + C0X);
 		bntx.Write("./patch/ui/replace_patch/chara/chara_6/chara_6_pickel_" + C0X + ".bntx");
 	}
-	std::cout << "[SteveModMaker::Main] Writing NUTEXB texture..." << std::endl;
+	std::cout << "[SteveModMaker::Main] Writing fighter texture..." << std::endl;
 	ColorCorrectSkin(skin);
-	NUTEXB nut("def_pickel_001_col", skin);
+	NUTEXB nut("def_pickel_001_col", skin, NUTEXBFormat::R8G8B8A8_SRGB);
 	nut.Save("./patch/fighter/pickel/model/body/c" + C0X + "/def_pickel_001_col.nutexb", 0x1CB0); // Pads NUTEXB to 23728 bytes
 
-	std::cout << "[SteveModMaker::Main] Copying over 2-Layer models..." << std::endl;
-	system("robocopy merge_patch patch /E /XC /XN /XO");
+	std::cout << "[SteveModMaker::Main] Done!" << std::endl;
 
 	return 0;
 	

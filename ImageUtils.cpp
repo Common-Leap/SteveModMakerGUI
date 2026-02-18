@@ -1,5 +1,3 @@
-#pragma once
-
 #include "ImageUtils.hpp"
 
 // https://stackoverflow.com/questions/45751605/pixels-overlay-with-transparency

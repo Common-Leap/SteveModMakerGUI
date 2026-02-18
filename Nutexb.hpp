@@ -60,7 +60,7 @@ public:
 
     NUTEXB(const std::string& internal_name, void* data, size_t size);
 
-    NUTEXB(const std::string& internal_name, cv::Mat& mat);
+    NUTEXB(const std::string& internal_name, cv::Mat& mat, NUTEXBFormat format = NUTEXBFormat::B8G8R8A8_SRGB);
 
     NUTEXBFooter& GetFooter();
 

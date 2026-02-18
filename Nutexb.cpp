@@ -28,26 +28,28 @@ NUTEXB::NUTEXB(const std::string& internal_name, void* data, size_t size) {
 	IMAGE_DATA.resize(size);
 	memcpy(&IMAGE_DATA[0], data, size);
 	footer.size = size;
-	strcpy_s(footer.internal_name, 0x40, internal_name.c_str());
+	strncpy(footer.internal_name, internal_name.c_str(), 0x40 - 1);
+	footer.internal_name[0x40 - 1] = '\0';
 }
 
-NUTEXB::NUTEXB(const std::string& internal_name, cv::Mat& mat) {
+NUTEXB::NUTEXB(const std::string& internal_name, cv::Mat& mat, NUTEXBFormat format) {
 
 	IMAGE_DATA.resize(mat.cols * mat.rows * 4);
 	memcpy(&IMAGE_DATA[0], mat.data, mat.cols * mat.rows * 4);
 
 	footer.mip_sizes[0] = mat.cols * mat.rows * 4;
 
-	strcpy_s(footer.internal_name, 0x40, internal_name.c_str());
+	strncpy(footer.internal_name, internal_name.c_str(), 0x40 - 1);
+	footer.internal_name[0x40 - 1] = '\0';
 
 	footer.width = mat.cols;
 	footer.height = mat.rows;
 	footer.depth = 1;
-	footer.format = NUTEXBFormat::B8G8R8A8_SRGB;
+	footer.format = format;
 	footer.unk = 4;
 	footer.PADDING = 0;
 	footer.unk2 = 4;
-	footer.mip_count = 1;
+	footer.mip_count = 7;
 	footer.alignment = 0;
 	footer.array_count = 1;
 	footer.size = mat.cols * mat.rows * 4;
