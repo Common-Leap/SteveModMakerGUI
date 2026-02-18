@@ -106,12 +106,12 @@ After successful compilation, the executable will be located at `build/SteveModM
 
 Run the tool with:
 ```bash
-./SteveModMaker <minecraft_username> <costume_number>
+./SteveModMaker <minecraft_username> <costume_number> <"big" or "small" for the arms"
 ```
 
 For example:
 ```bash
-./SteveModMaker Steve 00
+./SteveModMaker Steve 00 big
 ```
 
 The tool will download the Minecraft skin for the specified username and generate mod files for Super Smash Bros. Ultimate.
