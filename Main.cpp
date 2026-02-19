@@ -459,8 +459,19 @@ int main(int argc, char* argv[]) {
 	}
 	std::cout << "[SteveModMaker::Main] Writing fighter texture..." << std::endl;
 	ColorCorrectSkin(skin);
-	NUTEXB nut("def_pickel_001_col", skin, NUTEXBFormat::R8G8B8A8_SRGB);
-	nut.Save("./patch/fighter/pickel/model/body/c" + C0X + "/def_pickel_001_col.nutexb", 0x1CB0); // Pads NUTEXB to 23728 bytes
+	const std::filesystem::path output_nutexb = "./patch/fighter/pickel/model/body/c" + C0X + "/def_pickel_001_col.nutexb";
+	const std::filesystem::path base_nutexb = std::filesystem::path(RESOURCE_PATH) / "def_pickel_001_col_template.nutexb";
+
+	NUTEXB nut;
+	if (std::filesystem::exists(base_nutexb) && nut.Open(base_nutexb) && nut.ReplaceTextureFromMat(skin)) {
+		std::cout << "[SteveModMaker::Main] Using base def_pickel_001_col.nutexb template from " << base_nutexb << std::endl;
+		nut.Save(output_nutexb, 0);
+	}
+	else {
+		std::cout << "[SteveModMaker::Main] Base template not available, generating def_pickel_001_col.nutexb" << std::endl;
+		NUTEXB generated("def_pickel_001_col", skin, NUTEXBFormat::R8G8B8A8_SRGB);
+		generated.Save(output_nutexb, 0);
+	}
 
 	std::cout << "[SteveModMaker::Main] Done!" << std::endl;
 

@@ -57,6 +57,7 @@ private:
     std::vector<uint8_t> IMAGE_DATA;
     NUTEXBFooter footer;
 public:
+    NUTEXB() = default;
 
     NUTEXB(const std::string& internal_name, void* data, size_t size);
 
@@ -65,6 +66,8 @@ public:
     NUTEXBFooter& GetFooter();
 
     bool Open(const std::filesystem::path& filepath);
+
+    bool ReplaceTextureFromMat(cv::Mat& mat);
 
     bool Save(const std::filesystem::path& filepath, unsigned int pad = 0);
 
