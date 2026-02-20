@@ -43,12 +43,18 @@ bool NUTEXB::ReplaceTextureFromMat(cv::Mat& mat) {
 		return false;
 	}
 
+	// OpenCV stores 4-channel images as BGRA. Convert to the format expected by the NUTEXB footer.
+	cv::Mat source = mat;
+	if (footer.format == NUTEXBFormat::R8G8B8A8_UNORM || footer.format == NUTEXBFormat::R8G8B8A8_SRGB) {
+		cv::cvtColor(mat, source, cv::COLOR_BGRA2RGBA);
+	}
+
 	cv::Mat base_level;
-	if ((uint32_t)mat.cols == width && (uint32_t)mat.rows == height) {
-		base_level = mat;
+	if ((uint32_t)source.cols == width && (uint32_t)source.rows == height) {
+		base_level = source;
 	}
 	else {
-		cv::resize(mat, base_level, cv::Size((int)width, (int)height), 0, 0, cv::INTER_AREA);
+		cv::resize(source, base_level, cv::Size((int)width, (int)height), 0, 0, cv::INTER_AREA);
 	}
 
 	if (!base_level.isContinuous()) {

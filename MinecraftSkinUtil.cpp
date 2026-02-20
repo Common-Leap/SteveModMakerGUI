@@ -260,14 +260,22 @@ cv::Mat ConvertToModernSkin(cv::Mat& skin, bool model) {
 }
 
 void ColorCorrectSkin(cv::Mat& skin) {
+	if (skin.empty() || skin.type() != CV_8UC4) {
+		return;
+	}
+
+	constexpr double gamma_power = 1.0 / 1.2;
+
 	for (int y = 0; y < skin.rows; ++y) {
+		uint8_t* row = skin.ptr<uint8_t>(y);
 		for (int x = 0; x < skin.cols; ++x) {
+			uint8_t* channels = row + x * 4;
 
-			RGBA& rgba = *(RGBA*)&skin.data[y * skin.step + 4 * x];
-
-			rgba.R = (powf((float)rgba.R / 255.0f, 1.0f / 1.2f)) * 191.0f;
-			rgba.G = (powf((float)rgba.G / 255.0f, 1.0f / 1.2f)) * 191.0f;
-			rgba.B = (powf((float)rgba.B / 255.0f, 1.0f / 1.2f)) * 191.0f;
+			// OpenCV uses BGRA for CV_8UC4. Apply correction to B,G,R only and preserve alpha.
+			for (int i = 0; i < 3; i++) {
+				double corrected = std::pow((double)channels[i] / 255.0, gamma_power) * 191.0;
+				channels[i] = static_cast<uint8_t>(corrected);
+			}
 		}
 	}
 }
