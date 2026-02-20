@@ -50,7 +50,7 @@ cv::Mat RenderPerspectiveTransformation(float topleftx, float toplefty, float to
 		break;
 	}
 
-	cv::warpPerspective(SOURCE_IMAGE, SOURCE_IMAGE, transform, CANVAS_SIZE, cv::INTER_CUBIC | cv::WARP_INVERSE_MAP);
+	cv::warpPerspective(SOURCE_IMAGE, SOURCE_IMAGE, transform, CANVAS_SIZE, cv::INTER_LANCZOS4 | cv::WARP_INVERSE_MAP);
 
 	return SOURCE_IMAGE;
 }

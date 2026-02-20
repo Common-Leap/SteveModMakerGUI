@@ -398,7 +398,7 @@ int main(int argc, char* argv[]) {
 	std::cout << "[SteveModMaker::Main] Creating chara_0 image..." << std::endl;
 	{ // chara_0
 		cv::Mat render_cpy(176, 336, CV_8UC4);
-		cv::resize(base_render, render_cpy, cv::Size(176, 336), 0, 0, cv::INTER_AREA);
+		cv::resize(base_render, render_cpy, cv::Size(176, 336), 0, 0, cv::INTER_LANCZOS4);
 		OverlayImage(chara_0, render_cpy, cv::Point(-25, -2));
 
 		BNTX bntx(chara_0, "chara_0_pickel_" + C0X);
@@ -407,7 +407,7 @@ int main(int argc, char* argv[]) {
 	std::cout << "[SteveModMaker::Main] Creating chara_1 image..." << std::endl;
 	{ // chara_1
 		cv::Mat render_cpy(280, 540, CV_8UC4);
-		cv::resize(base_render, render_cpy, cv::Size(280, 540), 0, 0, cv::INTER_AREA);
+		cv::resize(base_render, render_cpy, cv::Size(280, 540), 0, 0, cv::INTER_LANCZOS4);
 		OverlayImage(chara_1, render_cpy, cv::Point(93, 63));
 		BNTX bntx(chara_1, "chara_1_pickel_" + C0X);
 		bntx.Write("./patch/ui/replace_patch/chara/chara_1/chara_1_pickel_" + C0X + ".bntx");
@@ -416,7 +416,7 @@ int main(int argc, char* argv[]) {
 	{ // chara_2
 		cv::Mat head = skin(cv::Rect(8, 8, 8, 8));
 		cv::Mat head_scaled(45, 45, CV_8UC4);
-		cv::resize(head, head_scaled, cv::Size(45, 45), 0, 0, cv::INTER_NEAREST);
+		cv::resize(head, head_scaled, cv::Size(45, 45), 0, 0, cv::INTER_CUBIC);
 		OverlayImage(chara_2, head_scaled, cv::Point(10, 9));
 		BNTX bntx(chara_2, "chara_2_pickel_" + C0X);
 		bntx.Write("./patch/ui/replace_patch/chara/chara_2/chara_2_pickel_" + C0X + ".bntx");
@@ -429,7 +429,7 @@ int main(int argc, char* argv[]) {
 	std::cout << "[SteveModMaker::Main] Creating chara_4 image..." << std::endl;
 	{ // chara_4
 		cv::Mat render_cpy(174, 333, CV_8UC4);
-		cv::resize(base_render, render_cpy, cv::Size(174, 333), 0, 0, cv::INTER_AREA);
+		cv::resize(base_render, render_cpy, cv::Size(174, 333), 0, 0, cv::INTER_LANCZOS4);
 		OverlayImage(chara_4, render_cpy, cv::Point(-7, 8));
 		Chara4Mask(chara_4, chara_4_mask);
 
@@ -442,7 +442,7 @@ int main(int argc, char* argv[]) {
 		cv::Mat chara_5 = cv::imread(masks_path + "/chara_5_pickel_00.png", cv::IMREAD_UNCHANGED);
 
 		cv::Mat render_cpy(267, 527, CV_8UC4);
-		cv::resize(base_render, render_cpy, cv::Size(267, 527), 0, 0, cv::INTER_AREA);
+		cv::resize(base_render, render_cpy, cv::Size(267, 527), 0, 0, cv::INTER_LANCZOS4);
 		OverlayImage(chara_5, render_cpy, cv::Point(4, -13));
 
 		BNTX bntx(chara_5, "chara_5_pickel_00");
@@ -453,7 +453,7 @@ int main(int argc, char* argv[]) {
 		cv::Mat chara_5 = cv::imread(masks_path + "/chara_5_pickel_01.png", cv::IMREAD_UNCHANGED);
 
 		cv::Mat render_cpy(267, 527, CV_8UC4);
-		cv::resize(base_render, render_cpy, cv::Size(267, 527), 0, 0, cv::INTER_AREA);
+		cv::resize(base_render, render_cpy, cv::Size(267, 527), 0, 0, cv::INTER_LANCZOS4);
 		OverlayImage(chara_5, render_cpy, cv::Point(-10, -14));
 
 		BNTX bntx(chara_5, "chara_5_pickel_01");
@@ -464,7 +464,7 @@ int main(int argc, char* argv[]) {
 		cv::Mat chara_6(256, 512, CV_8UC4); std::memset(chara_6.data, 0, 256 * 512 * 4);
 
 		cv::Mat render_cpy(711, 1385, CV_8UC4);
-		cv::resize(base_render, render_cpy, cv::Size(711, 1385), 0, 0, cv::INTER_AREA);
+		cv::resize(base_render, render_cpy, cv::Size(711, 1385), 0, 0, cv::INTER_LANCZOS4);
 		OverlayImage(chara_6, render_cpy, cv::Point(-150, -110));
 
 	 	BNTX bntx(chara_6, "chara_6_pickel_" + C0X);
