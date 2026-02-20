@@ -283,7 +283,7 @@ int main(int argc, char* argv[]) {
 		std::cout << "Usage: SteveModMaker <minecraft_username> <slot_number> [arm_type]" << std::endl;
 		std::cout << "  minecraft_username: Your Minecraft Java Edition username" << std::endl;
 		std::cout << "  slot_number: Costume slot (1-8)" << std::endl;
-		std::cout << "  arm_type: 'big' for big arms (default) or 'small' for small arms" << std::endl;
+		std::cout << "  arm_type (optional): 'small' or 'big' to override auto-detection" << std::endl;
 		return -1;
 	}
 
@@ -301,17 +301,6 @@ int main(int argc, char* argv[]) {
 	snprintf(buffer, sizeof(buffer), "%02d", C0X_);
 	std::string C0X(buffer);
 	
-	// Parse arm type (big or small, default: big)
-	std::string arm_type = "big";
-	if (argc >= 4) {
-		arm_type = argv[3];
-		if (arm_type != "big" && arm_type != "small") {
-			std::cout << "Error: arm_type must be 'big' or 'small'" << std::endl;
-			return -1;
-		}
-	}
-	std::cout << "[SteveModMaker::Main] Using " << arm_type << " arms template" << std::endl;
-
 	std::cout << "[SteveModMaker::Main] Downloading skin for " << argv[1] << "..." << std::endl;
 	cv::Mat skin = DownloadSkin(argv[1]);
 	if (skin.empty()) {
@@ -320,7 +309,29 @@ int main(int argc, char* argv[]) {
 	}
 
 	std::cout << "[SteveModMaker::Main] Determining player model..." << std::endl;
-	bool model = GetModel(argv[1]);
+	bool model = DetectSlimModelFromSkin(skin);
+	std::string arm_type = model ? "small" : "big";
+
+	if (argc >= 4) {
+		std::string forced_arm = argv[3];
+		if (forced_arm == "small") {
+			model = true;
+			arm_type = "small";
+			std::cout << "[SteveModMaker::Main] Using manual arm override: small" << std::endl;
+		}
+		else if (forced_arm == "big") {
+			model = false;
+			arm_type = "big";
+			std::cout << "[SteveModMaker::Main] Using manual arm override: big" << std::endl;
+		}
+		else {
+			std::cout << "Error: arm_type must be 'small' or 'big'" << std::endl;
+			return -1;
+		}
+	}
+	else {
+		std::cout << "[SteveModMaker::Main] Auto-detected " << arm_type << " arms template from skin texture" << std::endl;
+	}
 	
 	skin = ConvertToModernSkin(skin, model);
 
@@ -351,8 +362,10 @@ int main(int argc, char* argv[]) {
 				std::filesystem::copy_file(entry.path(), target_slot + "/" + filename, std::filesystem::copy_options::overwrite_existing);
 			}
 		}
-	} else {
-		std::filesystem::create_directories(target_slot);
+	}
+	else {
+		std::cerr << "[SteveModMaker::Main] Error: Missing fighter template directory: " << template_dir << std::endl;
+		return -1;
 	}
 	
 	// Ensure UI directories exist for character select screen files

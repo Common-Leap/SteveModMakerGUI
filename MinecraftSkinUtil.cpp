@@ -143,6 +143,28 @@ bool GetModel(const std::string& username) {
 		return false;
 }
 
+bool DetectSlimModelFromSkin(const cv::Mat& skin) {
+	if (skin.empty() || skin.cols < 64 || skin.rows < 32) {
+		return false;
+	}
+
+	auto alpha_at = [&](int x, int y) -> uint8_t {
+		if (x < 0 || y < 0 || x >= skin.cols || y >= skin.rows) {
+			return 255;
+		}
+		if (skin.channels() < 4) {
+			return 255;
+		}
+		return skin.ptr<uint8_t>(y)[x * skin.channels() + 3];
+	};
+
+	// Common slim markers in modern skin layout.
+	const bool marker_right_arm = (alpha_at(54, 20) == 0);
+	const bool marker_left_arm = (alpha_at(46, 52) == 0);
+
+	return marker_right_arm || marker_left_arm;
+}
+
 cv::Mat DownloadSkin(const std::string& username) {
 	std::string res = CurlDownloadToString("https://api.mojang.com/users/profiles/minecraft/" + username);
 

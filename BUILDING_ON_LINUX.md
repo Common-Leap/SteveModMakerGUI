@@ -84,34 +84,34 @@ export LD_LIBRARY_PATH=$TEGRA_SWIZZLE_HOME/lib:$LD_LIBRARY_PATH
 cd SteveModMakerLinux
 ```
 
-2. Create a build directory:
+2. Configure a release build from the source directory:
 ```bash
-mkdir -p build
-cd build
+cmake --preset release
 ```
 
-3. Configure the build with CMake:
+3. Compile the project:
 ```bash
-cmake ..
-```
-
-4. Compile the project:
-```bash
-make
+cmake --build --preset release
 ```
 
 ## Running
 
-After successful compilation, the executable will be located at `build/SteveModMaker`
+After successful compilation, the executable will be located at `release/SteveModMaker`
 
 Run the tool with:
 ```bash
-./SteveModMaker <minecraft_username> <costume_number> <"big" or "small" for the arms"
+./release/SteveModMaker <minecraft_username> <costume_number> [arm_type]
 ```
 
 For example:
 ```bash
-./SteveModMaker Steve 00 big
+./release/SteveModMaker Steve 00
+```
+
+Optional arm override:
+```bash
+./release/SteveModMaker Steve 00 small
+./release/SteveModMaker Steve 00 big
 ```
 
 The tool will download the Minecraft skin for the specified username and generate mod files for Super Smash Bros. Ultimate.
@@ -120,15 +120,12 @@ The tool will download the Minecraft skin for the specified username and generat
 
 To clean up the build directory:
 ```bash
-rm -rf build/
+rm -rf release/
 ```
 
 Or if you want to just rebuild:
 ```bash
-cd build
-cmake ..
-make clean
-make
+cmake --build --preset release --clean-first
 ```
 
 ## Troubleshooting
@@ -210,5 +207,3 @@ The converted project now uses:
 - `strcpy_s` has been replaced with standard `strncpy`
 - Texture swizzling is handled by the tegra_swizzle C FFI API which works on Linux
 - The Resources directory with PNG files must be in the working directory when running the tool
-
-

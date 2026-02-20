@@ -33,4 +33,5 @@
 
 # Project-generated artifacts
 build/
+release/
 patch/

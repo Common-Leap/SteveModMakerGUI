@@ -86,34 +86,34 @@ export LD_LIBRARY_PATH=$TEGRA_SWIZZLE_HOME/lib:$LD_LIBRARY_PATH
 cd SteveModMakerLinux
 ```
 
-2. Create a build directory:
+2. Configure a release build from the source directory:
 ```bash
-mkdir -p build
-cd build
+cmake --preset release
 ```
 
-3. Configure the build with CMake:
+3. Compile the project:
 ```bash
-cmake ..
-```
-
-4. Compile the project:
-```bash
-make
+cmake --build --preset release
 ```
 
 ## Running
 
-After successful compilation, the executable will be located at `build/SteveModMaker`
+After successful compilation, the executable will be located at `release/SteveModMaker`
 
 Run the tool with:
 ```bash
-./SteveModMaker <minecraft_username> <costume_number> <"big" or "small" for the arms">
+./release/SteveModMaker <minecraft_username> <costume_number> [arm_type]
 ```
 
 For example:
 ```bash
-./SteveModMaker Steve 00 big
+./release/SteveModMaker Steve 00
+```
+
+Optional arm override:
+```bash
+./release/SteveModMaker Steve 00 small
+./release/SteveModMaker Steve 00 big
 ```
 
 # Credits
