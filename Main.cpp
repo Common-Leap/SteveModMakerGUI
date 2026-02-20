@@ -414,9 +414,11 @@ int main(int argc, char* argv[]) {
 	}
 	std::cout << "[SteveModMaker::Main] Creating chara_2 image..." << std::endl;
 	{ // chara_2
-		cv::Mat head = skin(cv::Rect(8, 8, 8, 8));
+		cv::Mat head = skin(cv::Rect(8, 8, 8, 8)).clone();
+		const cv::Mat head_layer = skin(cv::Rect(40, 8, 8, 8));
+		OverlayImage(head, head_layer, cv::Point(0, 0));
 		cv::Mat head_scaled(45, 45, CV_8UC4);
-		cv::resize(head, head_scaled, cv::Size(45, 45), 0, 0, cv::INTER_CUBIC);
+		cv::resize(head, head_scaled, cv::Size(45, 45), 0, 0, cv::INTER_NEAREST);
 		OverlayImage(chara_2, head_scaled, cv::Point(10, 9));
 		BNTX bntx(chara_2, "chara_2_pickel_" + C0X);
 		bntx.Write("./patch/ui/replace_patch/chara/chara_2/chara_2_pickel_" + C0X + ".bntx");
