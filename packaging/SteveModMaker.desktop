@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Steve Mod Maker
+Comment=Generate Steve/Alex mods for Super Smash Bros. Ultimate
+Exec=SteveModMakerGUI
+Icon=stevemodmaker
+Terminal=false
+Categories=Game;Utility;

@@ -35,3 +35,14 @@
 build/
 release/
 patch/
+build-appimage/
+tools/appimage/
+*.AppImage
+
+# Additional generated build directories
+build-linux/
+build-windows/
+release-mingw-static/
+release-ninja/
+release-msvc/
+cmake-build-*/

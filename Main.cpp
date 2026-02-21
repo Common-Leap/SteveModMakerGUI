@@ -298,18 +298,44 @@ cv::Mat CreateRender(cv::Mat& skin, bool model) {
 
 int main(int argc, char* argv[]) {
 
-	if (argc < 3) {
-		std::cout << "Usage: SteveModMaker <minecraft_username> <slot_number> [arm_type]" << std::endl;
-		std::cout << "  minecraft_username: Your Minecraft Java Edition username" << std::endl;
+	auto print_usage = []() {
+		std::cout << "Usage:" << std::endl;
+		std::cout << "  SteveModMaker <minecraft_username> <slot_number> [arm_type]" << std::endl;
+		std::cout << "  SteveModMaker --skin-file <skin_png_path> <slot_number> [arm_type]" << std::endl;
+		std::cout << "  SteveModMaker -f <skin_png_path> <slot_number> [arm_type]" << std::endl;
 		std::cout << "  slot_number: Costume slot (1-8)" << std::endl;
 		std::cout << "  arm_type (optional): 'small' or 'big' to override auto-detection" << std::endl;
+	};
+
+	if (argc < 3) {
+		print_usage();
 		return -1;
 	}
 
 	try {
 
+	bool use_skin_file = false;
+	std::string skin_source;
+	int slot_arg_index = 2;
+	int arm_arg_index = 3;
+
+	const std::string first_arg = argv[1];
+	if (first_arg == "--skin-file" || first_arg == "-f") {
+		if (argc < 4) {
+			print_usage();
+			return -1;
+		}
+		use_skin_file = true;
+		skin_source = argv[2];
+		slot_arg_index = 3;
+		arm_arg_index = 4;
+	}
+	else {
+		skin_source = argv[1];
+	}
+
 	// Parse slot number (1-8)
-	int slot_input = std::stoi(argv[2]);
+	int slot_input = std::stoi(argv[slot_arg_index]);
 	if (slot_input < 1 || slot_input > 8) {
 		std::cout << "Error: Slot number must be between 1 and 8" << std::endl;
 		return -1;
@@ -322,10 +348,17 @@ int main(int argc, char* argv[]) {
 	snprintf(buffer, sizeof(buffer), "%02d", C0X_);
 	std::string C0X(buffer);
 	
-	std::cout << "[SteveModMaker::Main] Downloading skin for " << argv[1] << "..." << std::endl;
-	cv::Mat skin = DownloadSkin(argv[1]);
+	cv::Mat skin;
+	if (use_skin_file) {
+		std::cout << "[SteveModMaker::Main] Loading skin file: " << skin_source << std::endl;
+		skin = LoadSkinFromFile(skin_source);
+	}
+	else {
+		std::cout << "[SteveModMaker::Main] Downloading skin for " << skin_source << "..." << std::endl;
+		skin = DownloadSkin(skin_source);
+	}
 	if (skin.empty()) {
-		std::cerr << "[SteveModMaker::Main] Failed to download skin" << std::endl;
+		std::cerr << "[SteveModMaker::Main] Failed to load skin input" << std::endl;
 		return -1;
 	}
 
@@ -333,8 +366,8 @@ int main(int argc, char* argv[]) {
 	bool model = DetectSlimModelFromSkin(skin);
 	std::string arm_type = model ? "small" : "big";
 
-	if (argc >= 4) {
-		std::string forced_arm = argv[3];
+	if (argc >= arm_arg_index + 1) {
+		std::string forced_arm = argv[arm_arg_index];
 		if (forced_arm == "small") {
 			model = true;
 			arm_type = "small";
@@ -356,7 +389,7 @@ int main(int argc, char* argv[]) {
 	
 	skin = ConvertToModernSkin(skin, model);
 
-	std::cout << "[SteveModMaker::Main] Downloaded Skin." << std::endl;
+	std::cout << "[SteveModMaker::Main] Skin ready." << std::endl;
 
 	cv::Mat base_render = CreateRender(skin, model);
 

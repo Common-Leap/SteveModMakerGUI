@@ -17,6 +17,8 @@ bool DetectSlimModelFromSkin(const cv::Mat& skin);
 
 cv::Mat DownloadSkin(const std::string& username);
 
+cv::Mat LoadSkinFromFile(const std::string& file_path);
+
 cv::Mat ConvertToModernSkin(cv::Mat& skin, bool model);
 
 void ColorCorrectSkin(cv::Mat& skin);

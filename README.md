@@ -1,173 +1,307 @@
 # SteveModMaker
-A tool for generating Steve/Alex mods for Super Smash Bros. Ultimate. Tested on Arch Linux.
-# Quick Start Guide
-### Arch:
-1. Install basic dependencies:
-    ```bash
-    sudo pacman -S opencv curl gcc-libs
-    ```
-2. Build and Install tegra_swizzle
 
-    -Build with
-     ```bash
-    git clone https://github.com/ScanMountGoat/tegra_swizzle.git
-    cd tegra_swizzle
-    cargo rustc --release --crate-type=cdylib --features=ffi
-    ```
+Generate Steve/Alex mods for Super Smash Bros. Ultimate from Minecraft skins.
 
-    -Install with
-    ```bash
-    sudo cp target/release/libtegra_swizzle.so /usr/local/lib/
-    sudo ldconfig
-    ```
-3. Download the latest release, make it executable with chmod or a gui, and run it with this command in the same directory
-    ```bash
-    ./SteveModMaker <Username> <Skin Slot>
-    ```
+This project provides two executables:
 
-# Building 
-## Prerequisites
+- `SteveModMaker`: CLI generator
+- `SteveModMakerGUI`: desktop GUI that runs the CLI
 
-Before building, install the required dependencies:
+Windows baseline target: Windows 11 x64.
 
-- C++17 compiler (`g++`/`clang++`)
-- CMake 3.21+ (required by `CMakePresets.json`)
-- Make (`Unix Makefiles` generator)
-- OpenCV development package
-- libcurl development package
-- RapidJSON development package
-- Rust + Cargo (to build `tegra_swizzle`)
-- Git (to clone `tegra_swizzle`)
+## What Builds Where
 
-### Ubuntu/Debian:
+- Linux native build on Linux: `SteveModMaker` + `SteveModMakerGUI`
+- Windows native build on Windows: `SteveModMaker.exe` + `SteveModMakerGUI.exe`
+- Windows cross-build on Linux: `SteveModMaker.exe` + `SteveModMakerGUI.exe`
+
+## Quick Start (No Build)
+
+Download prebuilt files from Releases:
+
+- https://github.com/Common-Leap/SteveModMakerLinux/releases
+
+### Windows 11 (Prebuilt)
+
+1. Open the Releases page and download the latest Windows archive (`.zip`).
+2. Extract it to a normal folder (your downloads folder or something).
+3. Run `SteveModMakerGUI.exe`.
+4. Keep all `.exe` and `.dll` files together in the same folder.
+
+CLI usage example:
+
+```powershell
+.\SteveModMaker.exe Steve 1
+```
+
+### Linux (Prebuilt)
+
+1. Open the Releases page and download the latest Linux artifact.
+2. If it is an AppImage:
+
+```bash
+chmod +x SteveModMaker-*.AppImage
+./SteveModMaker-*.AppImage
+```
+
+3. If it is a tar/zip archive, extract and run `SteveModMakerGUI`.
+
+CLI usage example:
+
+```bash
+./SteveModMaker Steve 1
+```
+
+## CLI Usage
+
+```text
+SteveModMaker <minecraft_username> <slot_number> [arm_type]
+SteveModMaker --skin-file <skin_png_path> <slot_number> [arm_type]
+SteveModMaker -f <skin_png_path> <slot_number> [arm_type]
+```
+
+- `slot_number`: `1` through `8`
+- `arm_type` (optional): `small` or `big`
+
+Examples:
+
+```bash
+./SteveModMaker Steve 1
+./SteveModMaker --skin-file ./my_skin.png 2
+./SteveModMaker --skin-file ./my_skin.png 3 small
+```
+
+Output is written under `./patch/...` relative to the current working directory.
+
+## Build From Fresh Install (Linux)
+
+### 1) Install dependencies
+
+Ubuntu/Debian:
+
 ```bash
 sudo apt-get update
 sudo apt-get install -y \
-    build-essential \
-    cmake \
-    make \
-    pkg-config \
-    libopencv-dev \
-    libcurl4-openssl-dev \
-    rapidjson-dev \
-    git \
-    cargo \
-    rustc
+  build-essential cmake ninja-build pkg-config \
+  libopencv-dev libcurl4-openssl-dev rapidjson-dev qt6-base-dev git
 ```
 
-### Fedora/RHEL:
+Fedora:
+
 ```bash
 sudo dnf install -y \
-    gcc-c++ \
-    cmake \
-    make \
-    pkgconf-pkg-config \
-    opencv-devel \
-    curl-devel \
-    rapidjson-devel \
-    git \
-    cargo \
-    rust
+  gcc-c++ cmake ninja-build pkgconf-pkg-config \
+  opencv-devel curl-devel rapidjson-devel qt6-qtbase-devel git
 ```
 
-### Arch:
+Arch:
+
 ```bash
-sudo pacman -S \
-    base-devel \
-    cmake \
-    pkgconf \
-    opencv \
-    curl \
-    rapidjson \
-    rust \
-    cargo \
-    git
+sudo pacman -S --needed \
+  base-devel cmake ninja pkgconf \
+  opencv curl rapidjson qt6-base git
 ```
 
-## Building tegra_swizzle
-
-The SteveModMaker requires the `tegra_swizzle` library which provides C FFI bindings for texture swizzling. You'll need to build it from source:
+### 2) Build
 
 ```bash
-# Clone the tegra_swizzle repository
-git clone https://github.com/ScanMountGoat/tegra_swizzle.git
-cd tegra_swizzle
-
-# Build the C FFI library
-cargo build --release --lib --features=c_ffi
-
-# Install the library to system location
-sudo cp target/release/libtegra_swizzle.so /usr/local/lib/
-sudo ldconfig
-```
-
-Alternatively, if you don't have sudo access:
-
-```bash
-# Build and use a local installation
-TEGRA_SWIZZLE_HOME=$(pwd)/tegra_swizzle
-mkdir -p $TEGRA_SWIZZLE_HOME/lib
-git clone https://github.com/ScanMountGoat/tegra_swizzle.git $TEGRA_SWIZZLE_HOME/src
-cd $TEGRA_SWIZZLE_HOME/src
-cargo build --release --lib --features=c_ffi
-cp target/release/libtegra_swizzle.so $TEGRA_SWIZZLE_HOME/lib/
-```
-
-## Building SteveModMaker
-
-1. Navigate to the project directory:
-```bash
+git clone https://github.com/Common-Leap/SteveModMakerLinux.git
 cd SteveModMakerLinux
-```
-
-2. Configure a release build from the source directory:
-```bash
 cmake --preset release
-```
-
-If you installed `tegra_swizzle` to a local non-system path, point CMake at that library directory:
-```bash
-cmake --preset release -DCMAKE_LIBRARY_PATH="$TEGRA_SWIZZLE_HOME/lib"
-```
-
-3. Confirm CMake found `tegra_swizzle` in the configure output:
-```text
--- Found tegra_swizzle: /path/to/libtegra_swizzle.so
-```
-
-4. Compile the project:
-```bash
 cmake --build --preset release
 ```
 
-## Running
+Artifacts:
 
-After successful compilation, the executable will be located at `release/SteveModMaker`
+- `release/SteveModMaker`
+- `release/SteveModMakerGUI`
 
-Run the tool with:
+On Linux x86_64, AppImage packaging is enabled by default in this preset.
+Disable it if needed:
+
 ```bash
-./release/SteveModMaker <minecraft_username> <costume_number> [arm_type]
+cmake --preset release -DSTEVE_MOD_MAKER_AUTO_APPIMAGE=OFF
+cmake --build --preset release
 ```
 
-For example:
-```bash
-./release/SteveModMaker Steve 1
+## Build From Fresh Install (Windows 11, Native)
+
+### 1) Install tools
+
+- Visual Studio 2022 with `Desktop development with C++`
+- CMake 3.21+
+- Git
+- vcpkg
+
+### 2) Prepare vcpkg
+
+```powershell
+git clone https://github.com/microsoft/vcpkg C:\vcpkg
+C:\vcpkg\bootstrap-vcpkg.bat
+C:\vcpkg\vcpkg.exe install opencv4:x64-windows curl:x64-windows rapidjson:x64-windows qtbase:x64-windows
 ```
 
-Optional arm override:
-```bash
-./release/SteveModMaker Steve 1 small
-./release/SteveModMaker Steve 1 big
+### 3) Build
+
+```powershell
+git clone https://github.com/Common-Leap/SteveModMakerLinux.git
+cd SteveModMakerLinux
+$env:VCPKG_ROOT="C:\vcpkg"
+cmake --preset release-msvc
+cmake --build --preset release-msvc
 ```
 
-If `tegra_swizzle` is installed in a local non-system path, run with:
+Artifacts:
+
+- `release-msvc/Release/SteveModMaker.exe`
+- `release-msvc/Release/SteveModMakerGUI.exe`
+
+## Build Linux + Windows Artifacts From Linux (All Artifacts)
+
+This path builds all four binaries in one run (Linux CLI+GUI and Windows CLI+GUI).
+
+### 1) Install cross-toolchain prerequisites
+
+Ubuntu/Debian:
+
 ```bash
-LD_LIBRARY_PATH="$TEGRA_SWIZZLE_HOME/lib:$LD_LIBRARY_PATH" ./release/SteveModMaker Steve 1
+sudo apt-get update
+sudo apt-get install -y \
+  build-essential cmake ninja-build pkg-config git \
+  mingw-w64 \
+  autoconf autoconf-archive automake libtool
 ```
 
-# Credits
-jam1garner: nutexb, bntx, and some stolen code/models
-itsmeft24: Original project and the majority of the code
-ScanMountGoat: tegra_swizzle
-OpenAI: GTP-5.3-Codex
-Anthropic: Claude Haiku 4.5
+Fedora:
+
+```bash
+sudo dnf install -y \
+  gcc-c++ cmake ninja-build pkgconf-pkg-config git \
+  mingw64-gcc mingw64-gcc-c++ \
+  autoconf autoconf-archive automake libtool
+```
+
+Arch:
+
+```bash
+sudo pacman -S --needed \
+  mingw-w64-gcc cmake ninja git \
+  autoconf autoconf-archive automake libtool
+```
+
+### 2) Prepare vcpkg
+
+```bash
+git clone https://github.com/microsoft/vcpkg.git "$HOME/vcpkg"
+"$HOME/vcpkg/bootstrap-vcpkg.sh"
+```
+
+Verify it exists:
+
+```bash
+test -x "$HOME/vcpkg/vcpkg" && echo "vcpkg OK"
+```
+
+### 3) Build everything
+
+```bash
+cd SteveModMakerLinux
+./scripts/build-linux-and-windows.sh --vcpkg-root "$HOME/vcpkg"
+```
+
+Artifacts are written to `release/`:
+
+- `release/SteveModMaker`
+- `release/SteveModMakerGUI`
+- `release/SteveModMaker.exe`
+- `release/SteveModMakerGUI.exe`
+
+The script also bundles required MinGW runtime DLLs next to the Windows `.exe` files.
+
+Quick artifact check:
+
+```bash
+ls -lh release/SteveModMaker release/SteveModMakerGUI release/SteveModMaker.exe release/SteveModMakerGUI.exe release/*.dll
+```
+
+## AppImage Packaging (Manual)
+
+Automatic AppImage packaging is enabled for Linux x86_64 in normal preset builds.
+You can also run packaging directly:
+
+```bash
+./scripts/build-appimage.sh
+```
+
+Optional runtime override:
+
+```bash
+APPIMAGE_RUNTIME_FILE=/path/to/runtime-x86_64 ./scripts/build-appimage.sh
+```
+
+## Optional: External `tegra_swizzle`
+
+The project includes a built-in compatibility implementation and works without external `tegra_swizzle`.
+
+If you want to use external `tegra_swizzle`, build it and point CMake at `TEGRA_SWIZZLE_ROOT`.
+
+## Troubleshooting
+
+### `Qt Widgets was not found` during Windows cross-configure
+
+You are likely using a different vcpkg root than the one where `qtbase` was installed.
+Use an explicit root:
+
+```bash
+./scripts/build-linux-and-windows.sh --vcpkg-root "$HOME/vcpkg"
+```
+
+If you changed vcpkg root/triplet recently, clear stale Windows cache and rerun:
+
+```bash
+rm -rf release/.build-windows
+./scripts/build-linux-and-windows.sh --vcpkg-root "$HOME/vcpkg"
+```
+
+### `vcpkg executable not found at /absolute/path/to/vcpkg/vcpkg`
+
+`/absolute/path/to/vcpkg` is a placeholder. Replace it with your real path.
+
+Correct example:
+
+```bash
+export VCPKG_ROOT="$HOME/vcpkg"
+./scripts/build-linux-and-windows.sh --vcpkg-root "$VCPKG_ROOT"
+```
+
+### `pwsh: Permission denied` in vcpkg
+
+Fix execute permissions, then retry the vcpkg install/build:
+
+```bash
+chmod +x "$HOME"/vcpkg/downloads/tools/powershell-core-*/pwsh
+```
+
+If your vcpkg directory is on a `noexec` mount, move it to a normal executable location (for example `~/vcpkg`).
+
+### `gperf ... requires autoconf/autoconf-archive/automake/libtool`
+
+Install those host tools from your distro package manager, then rerun the build.
+
+### Windows `.exe` does not start
+
+Ensure the runtime DLLs are next to the executable:
+
+- `libgcc_s_seh-1.dll`
+- `libstdc++-6.dll`
+- `libwinpthread-1.dll`
+
+### GUI cannot find CLI
+
+`SteveModMakerGUI` expects the CLI binary beside it (`SteveModMaker` or `SteveModMaker.exe`).
+
+## Credits
+
+- jam1garner: nutexb, bntx, and some code/models
+- itsmeft24: original project and most of the code
+- ScanMountGoat: tegra_swizzle

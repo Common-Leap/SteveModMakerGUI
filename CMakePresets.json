@@ -9,10 +9,29 @@
     {
       "name": "release",
       "displayName": "Release Build",
-      "generator": "Unix Makefiles",
       "binaryDir": "${sourceDir}/release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "release-ninja",
+      "displayName": "Release Build (Ninja)",
+      "inherits": "release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/release-ninja"
+    },
+    {
+      "name": "release-msvc",
+      "displayName": "Release Build (MSVC)",
+      "inherits": "release",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/release-msvc",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "STEVE_MOD_MAKER_AUTO_APPIMAGE": "OFF"
       }
     }
   ],
@@ -20,6 +39,15 @@
     {
       "name": "release",
       "configurePreset": "release"
+    },
+    {
+      "name": "release-ninja",
+      "configurePreset": "release-ninja"
+    },
+    {
+      "name": "release-msvc",
+      "configurePreset": "release-msvc",
+      "configuration": "Release"
     }
   ]
 }

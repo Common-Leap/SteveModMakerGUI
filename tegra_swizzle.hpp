@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+
 constexpr inline size_t div_round_up(size_t x, size_t d) {
     return (x + d - 1) / d;
 }

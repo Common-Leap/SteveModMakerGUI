@@ -1,11 +1,65 @@
 #include <vector>
 #include <iostream>
+#include <filesystem>
 #include <curl/curl.h>
 #include <rapidjson/document.h>
 
 #include "Base64.hpp"
 #include "ImageUtils.hpp"
 #include "MinecraftSkinUtil.hpp"
+
+namespace {
+
+bool TryConvertToBGRA(const cv::Mat& input, cv::Mat& output) {
+	if (input.empty()) {
+		return false;
+	}
+
+	switch (input.channels()) {
+	case 4:
+		output = input.clone();
+		return true;
+	case 3:
+		cv::cvtColor(input, output, cv::COLOR_BGR2BGRA);
+		return true;
+	case 1:
+		cv::cvtColor(input, output, cv::COLOR_GRAY2BGRA);
+		return true;
+	default:
+		return false;
+	}
+}
+
+cv::Mat NormalizeSkinForTool(const cv::Mat& raw_skin, const std::string& source_label) {
+	cv::Mat skin_bgra;
+	if (!TryConvertToBGRA(raw_skin, skin_bgra)) {
+		std::cerr << "Error: Unsupported skin image format from " << source_label << std::endl;
+		return cv::Mat();
+	}
+
+	if (skin_bgra.cols == 64 && (skin_bgra.rows == 32 || skin_bgra.rows == 64)) {
+		return skin_bgra;
+	}
+
+	// Support HD skins by reducing to the canonical Minecraft skin dimensions.
+	if (skin_bgra.cols == skin_bgra.rows && (skin_bgra.cols % 64 == 0)) {
+		cv::Mat resized;
+		cv::resize(skin_bgra, resized, cv::Size(64, 64), 0, 0, cv::INTER_NEAREST);
+		return resized;
+	}
+	if (skin_bgra.cols == skin_bgra.rows * 2 && (skin_bgra.cols % 64 == 0)) {
+		cv::Mat resized;
+		cv::resize(skin_bgra, resized, cv::Size(64, 32), 0, 0, cv::INTER_NEAREST);
+		return resized;
+	}
+
+	std::cerr << "Error: Unsupported skin dimensions from " << source_label
+		<< ": " << skin_bgra.cols << "x" << skin_bgra.rows
+		<< ". Expected 64x64, 64x32, or HD multiples." << std::endl;
+	return cv::Mat();
+}
+
+} // namespace
 
 static size_t CurlWriteCallbackVectorBuffer(void* contents, size_t _size, size_t nmemb, void* userp) {
 	size_t size = _size * nmemb;
@@ -217,11 +271,27 @@ cv::Mat DownloadSkin(const std::string& username) {
 
 	std::string URL = document["textures"]["SKIN"]["url"].GetString();
 
-	cv::Mat result = CurlDownloadToMat(URL);
+	cv::Mat result = NormalizeSkinForTool(CurlDownloadToMat(URL), "downloaded skin");
 	if (result.empty()) {
 		std::cerr << "Error: Failed to download skin texture" << std::endl;
 	}
 	return result;
+}
+
+cv::Mat LoadSkinFromFile(const std::string& file_path) {
+	const std::filesystem::path path(file_path);
+	if (!std::filesystem::exists(path)) {
+		std::cerr << "Error: Skin file does not exist: " << file_path << std::endl;
+		return cv::Mat();
+	}
+
+	cv::Mat raw = cv::imread(path.string(), cv::IMREAD_UNCHANGED);
+	if (raw.empty()) {
+		std::cerr << "Error: Failed to read skin file: " << file_path << std::endl;
+		return cv::Mat();
+	}
+
+	return NormalizeSkinForTool(raw, "file '" + file_path + "'");
 }
 
 cv::Mat ConvertToModernSkin(cv::Mat& skin, bool model) {
