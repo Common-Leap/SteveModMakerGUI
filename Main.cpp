@@ -133,6 +133,20 @@ bool WriteMsgNameTemplate(
 		text.push_back(static_cast<char16_t>(code_unit));
 	}
 
+	// Slot 1 keeps a dedicated chr3 line that should always read "STEVE".
+	// Inject it when missing from the bundled template.
+	if (slot_one && text.find(u"label=\"nam_chr3_00_pickel\"") == std::u16string::npos) {
+		const std::size_t closing_tag_pos = text.find(u"</xmsbt>");
+		if (closing_tag_pos == std::u16string::npos) {
+			return false;
+		}
+		const std::u16string chr3_entry =
+			u"        <entry label=\"nam_chr3_00_pickel\">\n"
+			u"                <text>STEVE</text>\n"
+			u"        </entry>\n";
+		text.insert(closing_tag_pos, chr3_entry);
+	}
+
 	const std::u16string username_u16 = Utf8BytesToUtf16(username);
 	const std::u16string message_u16 = Utf8BytesToUtf16(special_message.empty() ? username : special_message);
 	const std::u16string slot_code_u16 = Utf8BytesToUtf16(msg_slot_code);

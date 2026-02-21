@@ -153,55 +153,63 @@ cmake --build build-cli --parallel
 
 ### 1) Install tools
 
-- Visual Studio 2022 with `Desktop development with C++`
+- Visual Studio 2022 with `Desktop development with C++` (MSVC + Windows SDK)
 - CMake 3.21+
 - Git
-- vcpkg
 
-### 2) Prepare vcpkg (first time only)
+### 2) Open a Visual Studio developer shell
+
+Use `x64 Native Tools Command Prompt for VS 2022` or `Developer PowerShell for VS 2022`.
+
+### 3) Clone repos
 
 ```powershell
 git clone https://github.com/microsoft/vcpkg C:\vcpkg
-C:\vcpkg\bootstrap-vcpkg.bat
+git clone https://github.com/Common-Leap/SteveModMakerLinux.git C:\src\SteveModMakerLinux
+cd C:\src\SteveModMakerLinux
 ```
 
-### 3) Install Windows dependencies once (`x64-windows-rel` + `x64-windows-dbg`)
+### 4) Bootstrap vcpkg and set env vars (first time only)
 
 ```powershell
-git clone https://github.com/Common-Leap/SteveModMakerLinux.git
-cd SteveModMakerLinux
+C:\vcpkg\bootstrap-vcpkg.bat
 $env:VCPKG_ROOT="C:\vcpkg"
 $tripletOverlay = (Resolve-Path .\cmake\vcpkg-triplets).Path
+```
+
+### 5) Install dependencies once (`x64-windows-rel` + `x64-windows-dbg`)
+
+```powershell
 & "$env:VCPKG_ROOT\vcpkg.exe" install --overlay-triplets="$tripletOverlay" `
   opencv4:x64-windows-rel curl:x64-windows-rel rapidjson:x64-windows-rel qtbase:x64-windows-rel `
   opencv4:x64-windows-dbg curl:x64-windows-dbg rapidjson:x64-windows-dbg qtbase:x64-windows-dbg
 ```
 
-### 4) Build Release
+### 6) Configure + build
+
+Release:
 
 ```powershell
 cmake --preset release-msvc
 cmake --build --preset release-msvc
 ```
 
-### 5) Build Debug (optional)
+Debug (optional):
 
 ```powershell
 cmake --preset debug-msvc
 cmake --build --preset debug-msvc
 ```
 
-### 6) Fast repeat builds (Windows)
-
-After initial setup, you usually only need:
+### 7) Fast repeat builds
 
 ```powershell
-cd SteveModMakerLinux
+cd C:\src\SteveModMakerLinux
 cmake --build --preset release-msvc
 cmake --build --preset debug-msvc
 ```
 
-When CMake configuration changes (for example `CMakeLists.txt` edits), rerun configure then build:
+If you changed `CMakeLists.txt` or CMake/vcpkg settings, rerun configure first:
 
 ```powershell
 cmake --preset release-msvc
@@ -210,7 +218,13 @@ cmake --preset debug-msvc
 cmake --build --preset debug-msvc
 ```
 
-`vcpkg install ...` does not need to be rerun unless dependencies/triplets/overlay triplets change.
+If starting a new shell, set `VCPKG_ROOT` again before re-configuring:
+
+```powershell
+$env:VCPKG_ROOT="C:\vcpkg"
+```
+
+`vcpkg install ...` only needs to be rerun when dependency/triplet/overlay-triplet inputs change.
 
 Artifacts:
 
@@ -308,7 +322,7 @@ ls -lh release/SteveModMaker release/SteveModMakerGUI release/SteveModMaker.exe 
 ## AppImage Packaging (Manual)
 
 Automatic AppImage packaging is enabled for Linux x86_64 preset builds when GUI is enabled.
-You can also run packaging directly:
+You can also run packaging directly (defaults to `release/`):
 
 ```bash
 ./scripts/build-appimage.sh
@@ -318,6 +332,12 @@ Optional runtime override:
 
 ```bash
 APPIMAGE_RUNTIME_FILE=/path/to/runtime-x86_64 ./scripts/build-appimage.sh
+```
+
+Optional build-dir override:
+
+```bash
+./scripts/build-appimage.sh --build-dir build-appimage
 ```
 
 ## Optional: External `tegra_swizzle`

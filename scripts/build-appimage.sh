@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BUILD_DIR="${PROJECT_ROOT}/build-appimage"
+BUILD_DIR="${PROJECT_ROOT}/release"
 TOOLS_DIR="${PROJECT_ROOT}/tools/appimage"
 ARCH="$(uname -m)"
 RUN_CONFIGURE=1
@@ -10,6 +10,7 @@ RUN_BUILD=1
 
 usage() {
 	echo "Usage: $0 [--build-dir <dir>] [--skip-configure] [--skip-build]"
+	echo "Default build dir: release"
 	echo "Env: APPIMAGE_RUNTIME_FILE=/path/to/runtime-x86_64 (optional)"
 }
 
