@@ -43,5 +43,35 @@
 /CMakeCache.txt
 /CMakeFiles/
 /cmake_install.cmake
+/install_manifest.txt
 /compile_commands.json
 /Makefile
+/build.ninja
+/.ninja_deps
+/.ninja_log
+/Testing/
+
+# IDE/editor noise
+/.vscode/
+/.idea/
+/.vs/
+*.swp
+*.swo
+*~
+
+# OS cruft
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Common logs / temporary artifacts
+*.log
+*.tmp
+*.temp
+
+# Common packaged outputs
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
