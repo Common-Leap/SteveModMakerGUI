@@ -1,10 +1,19 @@
 # SteveModMaker
-A tool for generating Steve/Alex mods for Super Smash Bros. Ultimate.
+A tool for generating Steve/Alex mods for Super Smash Bros. Ultimate. Tested on Arch Linux.
 
 # Building 
 ## Prerequisites
 
 Before building, install the required development dependencies:
+
+- C++17 compiler (`g++`/`clang++`)
+- CMake 3.21+ (required by `CMakePresets.json`)
+- Make (`Unix Makefiles` generator)
+- OpenCV development package
+- libcurl development package
+- RapidJSON development package
+- Rust + Cargo (to build `tegra_swizzle`)
+- Git (to clone `tegra_swizzle`)
 
 ### Ubuntu/Debian:
 ```bash
@@ -12,11 +21,12 @@ sudo apt-get update
 sudo apt-get install -y \
     build-essential \
     cmake \
+    make \
+    pkg-config \
     libopencv-dev \
     libcurl4-openssl-dev \
     rapidjson-dev \
     git \
-    curl \
     cargo \
     rustc
 ```
@@ -26,11 +36,12 @@ sudo apt-get install -y \
 sudo dnf install -y \
     gcc-c++ \
     cmake \
+    make \
+    pkgconf-pkg-config \
     opencv-devel \
     curl-devel \
     rapidjson-devel \
     git \
-    curl \
     cargo \
     rust
 ```
@@ -40,11 +51,13 @@ sudo dnf install -y \
 sudo pacman -S \
     base-devel \
     cmake \
+    pkgconf \
     opencv \
     curl \
     rapidjson \
     rust \
-    cargo
+    cargo \
+    git
 ```
 
 ## Building tegra_swizzle
@@ -74,9 +87,6 @@ git clone https://github.com/ScanMountGoat/tegra_swizzle.git $TEGRA_SWIZZLE_HOME
 cd $TEGRA_SWIZZLE_HOME/src
 cargo build --release --lib --features=c_ffi
 cp target/release/libtegra_swizzle.so $TEGRA_SWIZZLE_HOME/lib/
-
-# Then when building SteveModMaker:
-export LD_LIBRARY_PATH=$TEGRA_SWIZZLE_HOME/lib:$LD_LIBRARY_PATH
 ```
 
 ## Building SteveModMaker
@@ -91,7 +101,17 @@ cd SteveModMakerLinux
 cmake --preset release
 ```
 
-3. Compile the project:
+If you installed `tegra_swizzle` to a local non-system path, point CMake at that library directory:
+```bash
+cmake --preset release -DCMAKE_LIBRARY_PATH="$TEGRA_SWIZZLE_HOME/lib"
+```
+
+3. Confirm CMake found `tegra_swizzle` in the configure output:
+```text
+-- Found tegra_swizzle: /path/to/libtegra_swizzle.so
+```
+
+4. Compile the project:
 ```bash
 cmake --build --preset release
 ```
@@ -107,14 +127,23 @@ Run the tool with:
 
 For example:
 ```bash
-./release/SteveModMaker Steve 00
+./release/SteveModMaker Steve 1
 ```
 
 Optional arm override:
 ```bash
-./release/SteveModMaker Steve 00 small
-./release/SteveModMaker Steve 00 big
+./release/SteveModMaker Steve 1 small
+./release/SteveModMaker Steve 1 big
+```
+
+If `tegra_swizzle` is installed in a local non-system path, run with:
+```bash
+LD_LIBRARY_PATH="$TEGRA_SWIZZLE_HOME/lib:$LD_LIBRARY_PATH" ./release/SteveModMaker Steve 1
 ```
 
 # Credits
-The code that handles NUTEXB and BNTX file IO was based off of the existing Rust libraries [nutexb](https://github.com/jam1garner/nutexb) and [bntx](https://github.com/jam1garner/bntx). Texture swizzling is handled by [tegra_swizzle](https://github.com/ScanMountGoat/tegra_swizzle)'s C FFI API. Renders and UI are generated using OpenCV perspective warping. Skin data is grabbed from the Minecraft/Mojang web APIs using curl and rapidjson.
+jam1garner: nutexb, bntx, and some stolen code/models
+itsmeft24: Original project and the majority of the code
+ScanMountGoat: tegra_swizzle
+OpenAI: GTP-5.3-Codex
+Anthropic: Claude Haiku 4.5
