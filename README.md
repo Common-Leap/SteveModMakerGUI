@@ -158,7 +158,7 @@ cmake --build build-cli --parallel
 - Git
 - vcpkg
 
-### 2) Prepare vcpkg
+### 2) Prepare vcpkg (first time only)
 
 ```powershell
 git clone https://github.com/microsoft/vcpkg C:\vcpkg
@@ -175,6 +175,24 @@ $env:VCPKG_ROOT="C:\vcpkg"
 cmake --preset release-msvc
 cmake --build --preset release-msvc
 ```
+
+### 4) Fast repeat builds (Windows)
+
+After initial setup, you usually only need:
+
+```powershell
+cd SteveModMakerLinux
+cmake --build --preset release-msvc
+```
+
+When CMake configuration changes (for example `CMakeLists.txt` edits), rerun configure then build:
+
+```powershell
+cmake --preset release-msvc
+cmake --build --preset release-msvc
+```
+
+`vcpkg install ...` does not need to be rerun unless dependencies/triplet change.
 
 Artifacts:
 
@@ -242,6 +260,14 @@ test -x "$HOME/vcpkg/vcpkg" && echo "vcpkg OK"
 ```bash
 cd SteveModMakerLinux
 ./scripts/build-linux-and-windows.sh --vcpkg-root "$HOME/vcpkg"
+```
+
+Windows dependency installs are cached in `release/.build-windows/.windows-vcpkg-deps.stamp`.
+If vcpkg root, triplet, and overlay triplets are unchanged, repeat runs skip the `vcpkg install` step automatically.
+Force a reinstall when needed:
+
+```bash
+./scripts/build-linux-and-windows.sh --vcpkg-root "$HOME/vcpkg" --force-windows-deps
 ```
 
 Artifacts are written to `release/`:

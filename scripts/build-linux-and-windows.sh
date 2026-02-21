@@ -12,6 +12,7 @@ CUSTOM_WINDOWS_BUILD_DIR=0
 RUN_LINUX=1
 RUN_WINDOWS=1
 INSTALL_WINDOWS_DEPS=1
+FORCE_WINDOWS_DEPS=0
 VCPKG_ROOT_VALUE="${VCPKG_ROOT:-}"
 VCPKG_EXE=""
 
@@ -28,6 +29,7 @@ Options:
   --skip-linux                Skip native Linux build stage
   --skip-windows              Skip Windows cross-build stage
   --skip-windows-deps         Skip vcpkg install for Windows dependencies
+  --force-windows-deps        Force vcpkg install even when dependency stamp matches
   -h, --help                  Show this help
 
 Notes:
@@ -125,6 +127,49 @@ resolve_vcpkg() {
     return 1
 }
 
+hash_file_list() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum | awk '{print $1}'
+        return 0
+    fi
+    if command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 | awk '{print $1}'
+        return 0
+    fi
+    return 1
+}
+
+compute_overlay_triplets_fingerprint() {
+    if [[ ! -d "${VCPKG_OVERLAY_TRIPLETS}" ]]; then
+        echo "missing"
+        return 0
+    fi
+
+    local file_count
+    file_count="$(find "${VCPKG_OVERLAY_TRIPLETS}" -type f | wc -l | tr -d ' ')"
+    if [[ "${file_count}" == "0" ]]; then
+        echo "empty"
+        return 0
+    fi
+
+    local fingerprint=""
+    if command -v sha256sum >/dev/null 2>&1; then
+        fingerprint="$(
+            cd "${VCPKG_OVERLAY_TRIPLETS}" && \
+            find . -type f -print0 | sort -z | xargs -0 sha256sum | hash_file_list
+        )"
+    elif command -v shasum >/dev/null 2>&1; then
+        fingerprint="$(
+            cd "${VCPKG_OVERLAY_TRIPLETS}" && \
+            find . -type f -print0 | sort -z | xargs -0 shasum -a 256 | hash_file_list
+        )"
+    else
+        fingerprint="no-hash-tool"
+    fi
+
+    echo "${fingerprint}"
+}
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --output-dir)
@@ -162,6 +207,9 @@ while [[ $# -gt 0 ]]; do
             ;;
         --skip-windows-deps)
             INSTALL_WINDOWS_DEPS=0
+            ;;
+        --force-windows-deps)
+            FORCE_WINDOWS_DEPS=1
             ;;
         -h|--help)
             usage
@@ -248,13 +296,35 @@ if (( RUN_WINDOWS )); then
     fi
 
     if (( INSTALL_WINDOWS_DEPS )); then
-        echo "[build] Installing Windows cross dependencies with vcpkg..."
-        VCPKG_ROOT="${VCPKG_ROOT_VALUE}" VCPKG_DISABLE_METRICS=1 "${VCPKG_EXE}" install \
-            --overlay-triplets="${VCPKG_OVERLAY_TRIPLETS}" \
-            "opencv4[core,highgui,jpeg,png,webp,win32ui]:${WINDOWS_TRIPLET}" \
-            "curl:${WINDOWS_TRIPLET}" \
-            "qtbase:${WINDOWS_TRIPLET}" \
-            "rapidjson:${WINDOWS_TRIPLET}"
+        mkdir -p "${WINDOWS_BUILD_DIR}"
+        WINDOWS_DEPS_STAMP="${WINDOWS_BUILD_DIR}/.windows-vcpkg-deps.stamp"
+        WINDOWS_DEPS_STATE="$(cat <<EOF
+vcpkg_root=${VCPKG_ROOT_VALUE}
+triplet=${WINDOWS_TRIPLET}
+overlay_triplets=${VCPKG_OVERLAY_TRIPLETS}
+overlay_fingerprint=$(compute_overlay_triplets_fingerprint)
+EOF
+)"
+
+        SHOULD_INSTALL_WINDOWS_DEPS=1
+        if (( FORCE_WINDOWS_DEPS == 0 )) && [[ -f "${WINDOWS_DEPS_STAMP}" ]]; then
+            if [[ "$(cat "${WINDOWS_DEPS_STAMP}")" == "${WINDOWS_DEPS_STATE}" ]]; then
+                SHOULD_INSTALL_WINDOWS_DEPS=0
+            fi
+        fi
+
+        if (( SHOULD_INSTALL_WINDOWS_DEPS )); then
+            echo "[build] Installing Windows cross dependencies with vcpkg..."
+            VCPKG_ROOT="${VCPKG_ROOT_VALUE}" VCPKG_DISABLE_METRICS=1 "${VCPKG_EXE}" install \
+                --overlay-triplets="${VCPKG_OVERLAY_TRIPLETS}" \
+                "opencv4[core,highgui,jpeg,png,webp,win32ui]:${WINDOWS_TRIPLET}" \
+                "curl:${WINDOWS_TRIPLET}" \
+                "qtbase:${WINDOWS_TRIPLET}" \
+                "rapidjson:${WINDOWS_TRIPLET}"
+            printf '%s\n' "${WINDOWS_DEPS_STATE}" > "${WINDOWS_DEPS_STAMP}"
+        else
+            echo "[build] Windows vcpkg dependencies unchanged; skipping install (use --force-windows-deps to refresh)."
+        fi
     fi
 
     echo "[build] Configuring Windows cross-build..."
