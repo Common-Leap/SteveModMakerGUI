@@ -36,6 +36,21 @@
       }
     },
     {
+      "name": "release-msvc-cli",
+      "displayName": "Release Build (MSVC, CLI-only)",
+      "inherits": "release",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/release-msvc-cli",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake/vcpkg-triplets",
+        "VCPKG_TARGET_TRIPLET": "x64-windows-rel",
+        "STEVE_MOD_MAKER_BUILD_GUI": "OFF",
+        "STEVE_MOD_MAKER_AUTO_APPIMAGE": "OFF"
+      }
+    },
+    {
       "name": "debug-msvc",
       "displayName": "Debug Build (MSVC)",
       "generator": "Visual Studio 17 2022",
@@ -43,6 +58,19 @@
       "binaryDir": "${sourceDir}/release-msvc-dbg",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake/vcpkg-triplets",
+        "VCPKG_TARGET_TRIPLET": "x64-windows-dbg",
+        "STEVE_MOD_MAKER_AUTO_APPIMAGE": "OFF"
+      }
+    },
+    {
+      "name": "msvc-unified",
+      "displayName": "MSVC Build (Unified Release+Debug)",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/release-msvc-unified",
+      "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
         "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake/vcpkg-triplets",
         "VCPKG_TARGET_TRIPLET": "x64-windows-dbg",
@@ -65,8 +93,23 @@
       "configuration": "Release"
     },
     {
+      "name": "release-msvc-cli",
+      "configurePreset": "release-msvc-cli",
+      "configuration": "Release"
+    },
+    {
       "name": "debug-msvc",
       "configurePreset": "debug-msvc",
+      "configuration": "Debug"
+    },
+    {
+      "name": "release-msvc-unified",
+      "configurePreset": "msvc-unified",
+      "configuration": "Release"
+    },
+    {
+      "name": "debug-msvc-unified",
+      "configurePreset": "msvc-unified",
       "configuration": "Debug"
     }
   ]

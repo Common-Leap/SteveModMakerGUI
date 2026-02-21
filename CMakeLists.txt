@@ -18,7 +18,7 @@ option(
 )
 
 # Required dependencies for CLI generator
-find_package(OpenCV REQUIRED COMPONENTS imgproc highgui core imgcodecs)
+find_package(OpenCV REQUIRED COMPONENTS imgproc core imgcodecs)
 find_package(CURL REQUIRED)
 find_path(RAPIDJSON_INCLUDE_DIR rapidjson/document.h)
 if(NOT RAPIDJSON_INCLUDE_DIR)

@@ -178,45 +178,60 @@ $env:VCPKG_ROOT="C:\vcpkg"
 $tripletOverlay = (Resolve-Path .\cmake\vcpkg-triplets).Path
 ```
 
-### 5) Install dependencies once (`x64-windows-rel` + `x64-windows-dbg`)
+### 5) Install dependencies once (CLI + GUI)
+
+Recommended (one triplet, supports both Release + Debug):
 
 ```powershell
 & "$env:VCPKG_ROOT\vcpkg.exe" install --overlay-triplets="$tripletOverlay" `
-  opencv4:x64-windows-rel curl:x64-windows-rel rapidjson:x64-windows-rel qtbase:x64-windows-rel `
   opencv4:x64-windows-dbg curl:x64-windows-dbg rapidjson:x64-windows-dbg qtbase:x64-windows-dbg
 ```
 
-### 6) Configure + build
+This avoids duplicate dependency builds and is the fastest way to support both Release and Debug.
 
-Release:
+If you only need Release binaries, you can use the release-only triplet instead:
+
+```powershell
+& "$env:VCPKG_ROOT\vcpkg.exe" install --overlay-triplets="$tripletOverlay" `
+  opencv4:x64-windows-rel curl:x64-windows-rel rapidjson:x64-windows-rel qtbase:x64-windows-rel
+```
+
+### 6) Configure + build (CLI + GUI)
+
+Recommended (one configure, both configs):
+
+```powershell
+cmake --preset msvc-unified
+cmake --build --preset release-msvc-unified --parallel
+```
+
+Debug from the same build tree:
+
+```powershell
+cmake --build --preset debug-msvc-unified --parallel
+```
+
+Release-only path (optional):
 
 ```powershell
 cmake --preset release-msvc
-cmake --build --preset release-msvc
-```
-
-Debug (optional):
-
-```powershell
-cmake --preset debug-msvc
-cmake --build --preset debug-msvc
+cmake --build --preset release-msvc --parallel
 ```
 
 ### 7) Fast repeat builds
 
 ```powershell
 cd C:\src\SteveModMakerLinux
-cmake --build --preset release-msvc
-cmake --build --preset debug-msvc
+cmake --build --preset release-msvc-unified --parallel
+cmake --build --preset debug-msvc-unified --parallel
 ```
 
 If you changed `CMakeLists.txt` or CMake/vcpkg settings, rerun configure first:
 
 ```powershell
-cmake --preset release-msvc
-cmake --build --preset release-msvc
-cmake --preset debug-msvc
-cmake --build --preset debug-msvc
+cmake --preset msvc-unified
+cmake --build --preset release-msvc-unified --parallel
+cmake --build --preset debug-msvc-unified --parallel
 ```
 
 If starting a new shell, set `VCPKG_ROOT` again before re-configuring:
@@ -229,10 +244,26 @@ $env:VCPKG_ROOT="C:\vcpkg"
 
 Artifacts:
 
-- `release-msvc/Release/SteveModMaker.exe`
-- `release-msvc/Release/SteveModMakerGUI.exe`
-- `release-msvc-dbg/Debug/SteveModMaker.exe`
-- `release-msvc-dbg/Debug/SteveModMakerGUI.exe`
+- unified Release: `release-msvc-unified/Release/SteveModMaker.exe`
+- unified Release: `release-msvc-unified/Release/SteveModMakerGUI.exe`
+- unified Debug: `release-msvc-unified/Debug/SteveModMaker.exe`
+- unified Debug: `release-msvc-unified/Debug/SteveModMakerGUI.exe`
+- release-only: `release-msvc/Release/SteveModMaker.exe`
+- release-only: `release-msvc/Release/SteveModMakerGUI.exe`
+
+Optional (fastest first install if you only need CLI, no GUI):
+
+```powershell
+& "$env:VCPKG_ROOT\vcpkg.exe" install --overlay-triplets="$tripletOverlay" `
+  opencv4:x64-windows-rel curl:x64-windows-rel rapidjson:x64-windows-rel
+
+cmake --preset release-msvc-cli
+cmake --build --preset release-msvc-cli --parallel
+```
+
+CLI-only artifact:
+
+- `release-msvc-cli/Release/SteveModMaker.exe`
 
 ## Build Linux + Windows Artifacts From Linux (All Artifacts)
 
