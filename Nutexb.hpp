@@ -30,7 +30,7 @@ enum class NUTEXBFormat : uint8_t {
 
 struct NUTEXBFooter {
     uint32_t mip_sizes[16];
-    const char XNT[4] = { ' ', 'X', 'N', 'T' };
+    char XNT[4];
     char internal_name[0x40];
     uint32_t width;
     uint32_t height;
@@ -43,11 +43,9 @@ struct NUTEXBFooter {
     uint32_t alignment;
     uint32_t array_count;
     uint32_t size;
-    const char XET[4] = { ' ', 'X', 'E', 'T' };
+    char XET[4];
     uint16_t major_version;
     uint16_t minor_version;
-
-    NUTEXBFooter();
 };
 
 #pragma pack(pop)
@@ -55,7 +53,7 @@ struct NUTEXBFooter {
 class NUTEXB {
 private:
     std::vector<uint8_t> IMAGE_DATA;
-    NUTEXBFooter footer;
+    NUTEXBFooter footer{};
 public:
     NUTEXB() = default;
 

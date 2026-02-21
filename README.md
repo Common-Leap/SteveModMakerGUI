@@ -65,6 +65,7 @@ SteveModMaker --skin-file <skin_png_path> [--player-name <minecraft_username>] [
 - `--player-name` / `-n`: output/display name override (valid with `--skin-file`)
 - `--patch-subdir` / `-p`: write output under `./<folder_name>/...` instead of `./...`
 - `--special-message` / `-m` (optional): Boxing Ring message text; if omitted, username is used
+- `player_name` and `special_message` must use printable ASCII only
 - Option flags must appear before `<slot_number>`. After `<slot_number>`, only optional `[arm_type]` is accepted.
 
 Examples:

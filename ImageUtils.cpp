@@ -27,7 +27,6 @@ void AlphaBlendColors(RGBA& BottomPixel, const RGBA& TopPixel) {
 }
 
 cv::Mat RenderPerspectiveTransformation(float topleftx, float toplefty, float toprightx, float toprighty, float bottomrightx, float bottomrighty, float bottomleftx, float bottomlefty, PartSize bodypart, cv::Mat& SOURCE_IMAGE) {
-	cv::Point2f objectivePoints[4]{};
 	cv::Point2f imagePoints[4] = {
 		{topleftx , toplefty},
 		{toprightx, toprighty},

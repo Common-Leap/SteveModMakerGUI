@@ -10,6 +10,10 @@
 
 namespace {
 
+constexpr long kCurlConnectTimeoutSec = 15L;
+constexpr long kCurlTotalTimeoutSec = 60L;
+constexpr const char* kCurlUserAgent = "SteveModMaker/1.0";
+
 bool TryConvertToBGRA(const cv::Mat& input, cv::Mat& output) {
 	if (input.empty()) {
 		return false;
@@ -59,6 +63,38 @@ cv::Mat NormalizeSkinForTool(const cv::Mat& raw_skin, const std::string& source_
 	return cv::Mat();
 }
 
+bool ConfigureCurlCommonOptions(CURL* handle, const std::string& url) {
+	if (handle == nullptr) {
+		return false;
+	}
+
+	curl_easy_setopt(handle, CURLOPT_URL, url.c_str());
+	curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, 1L);
+	curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT, kCurlConnectTimeoutSec);
+	curl_easy_setopt(handle, CURLOPT_TIMEOUT, kCurlTotalTimeoutSec);
+	curl_easy_setopt(handle, CURLOPT_NOSIGNAL, 1L);
+	curl_easy_setopt(handle, CURLOPT_USERAGENT, kCurlUserAgent);
+	return true;
+}
+
+bool CurlRequestSucceeded(CURL* handle, CURLcode result, std::string& error_out) {
+	if (result != CURLE_OK) {
+		error_out = curl_easy_strerror(result);
+		return false;
+	}
+
+	long response_code = 0;
+	if (curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &response_code) != CURLE_OK) {
+		error_out = "failed to read HTTP response code";
+		return false;
+	}
+	if (response_code < 200 || response_code >= 300) {
+		error_out = "HTTP " + std::to_string(response_code);
+		return false;
+	}
+	return true;
+}
+
 } // namespace
 
 static size_t CurlWriteCallbackVectorBuffer(void* contents, size_t _size, size_t nmemb, void* userp) {
@@ -94,35 +130,46 @@ static size_t CurlWriteCallbackOSTREAM(void* buf, size_t size, size_t nmemb, voi
 void CurlDownloadToOSTREAM(const std::string& url, std::ostream& os)
 {
 	CURL* easyhandle = curl_easy_init();
-
-	curl_easy_setopt(easyhandle, CURLOPT_URL, url.c_str());
+	if (!ConfigureCurlCommonOptions(easyhandle, url)) {
+		std::cerr << "Error: Failed to initialize CURL handle for " << url << std::endl;
+		return;
+	}
 
 	curl_easy_setopt(easyhandle, CURLOPT_WRITEFUNCTION, &CurlWriteCallbackOSTREAM);
-
 	curl_easy_setopt(easyhandle, CURLOPT_WRITEDATA, &os);
-
-	curl_easy_perform(easyhandle);
+	std::string error;
+	const CURLcode result = curl_easy_perform(easyhandle);
+	if (!CurlRequestSucceeded(easyhandle, result, error)) {
+		std::cerr << "Error: Download failed for " << url << ": " << error << std::endl;
+	}
 
 	curl_easy_cleanup(easyhandle);
-
 }
 
 cv::Mat CurlDownloadToMat(const std::string& url)
 {
 	CURL* easyhandle = curl_easy_init();
+	if (!ConfigureCurlCommonOptions(easyhandle, url)) {
+		std::cerr << "Error: Failed to initialize CURL handle for " << url << std::endl;
+		return cv::Mat();
+	}
 
 	std::vector<unsigned char> vec;
-
-	curl_easy_setopt(easyhandle, CURLOPT_URL, url.c_str());
-
 	curl_easy_setopt(easyhandle, CURLOPT_WRITEFUNCTION, &CurlWriteCallbackVectorBuffer);
-
 	curl_easy_setopt(easyhandle, CURLOPT_WRITEDATA, &vec);
-
-	curl_easy_perform(easyhandle);
+	std::string error;
+	const CURLcode result = curl_easy_perform(easyhandle);
+	if (!CurlRequestSucceeded(easyhandle, result, error)) {
+		std::cerr << "Error: Download failed for " << url << ": " << error << std::endl;
+		curl_easy_cleanup(easyhandle);
+		return cv::Mat();
+	}
 
 	curl_easy_cleanup(easyhandle);
-
+	if (vec.empty()) {
+		std::cerr << "Error: Empty response body for " << url << std::endl;
+		return cv::Mat();
+	}
 	return cv::imdecode(vec, cv::IMREAD_UNCHANGED);
 }
 
@@ -131,14 +178,21 @@ std::string CurlDownloadToString(const std::string& url) {
 	std::string ret;
 
 	CURL* easyhandle = curl_easy_init();
-
-	curl_easy_setopt(easyhandle, CURLOPT_URL, url.c_str());
+	if (!ConfigureCurlCommonOptions(easyhandle, url)) {
+		std::cerr << "Error: Failed to initialize CURL handle for " << url << std::endl;
+		return {};
+	}
 
 	curl_easy_setopt(easyhandle, CURLOPT_WRITEFUNCTION, CurlWriteCallbackString);
 
 	curl_easy_setopt(easyhandle, CURLOPT_WRITEDATA, &ret);
-
-	curl_easy_perform(easyhandle);
+	std::string error;
+	const CURLcode result = curl_easy_perform(easyhandle);
+	if (!CurlRequestSucceeded(easyhandle, result, error)) {
+		std::cerr << "Error: Download failed for " << url << ": " << error << std::endl;
+		curl_easy_cleanup(easyhandle);
+		return {};
+	}
 
 	curl_easy_cleanup(easyhandle);
 

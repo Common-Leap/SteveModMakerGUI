@@ -1,16 +1,19 @@
 
 #include <fstream>
 #include <algorithm>
+#include <cstring>
 
 #include "Nutexb.hpp"
 #include "tegra_swizzle.hpp"
 
-NUTEXBFooter::NUTEXBFooter() {
-	memset(&this->mip_sizes, 0, 64);
-	memset(&this->internal_name, 0, 64);
-	memset(&this->major_version, 0, 4);
-	// zero-initialize everything
+namespace {
+
+void InitializeFooterMagic(NUTEXBFooter& footer) {
+	std::memcpy(footer.XNT, " XNT", 4);
+	std::memcpy(footer.XET, " XET", 4);
 }
+
+} // namespace
 
 bool NUTEXB::Open(const std::filesystem::path& filepath) {
 	std::ifstream FSTREAM(filepath, std::ios::in | std::ios::binary);
@@ -125,6 +128,7 @@ bool NUTEXB::ReplaceTextureFromMat(cv::Mat& mat) {
 }
 
 NUTEXB::NUTEXB(const std::string& internal_name, void* data, size_t size) {
+	InitializeFooterMagic(footer);
 	IMAGE_DATA.resize(size);
 	memcpy(&IMAGE_DATA[0], data, size);
 	footer.size = size;
@@ -133,6 +137,7 @@ NUTEXB::NUTEXB(const std::string& internal_name, void* data, size_t size) {
 }
 
 NUTEXB::NUTEXB(const std::string& internal_name, cv::Mat& mat, NUTEXBFormat format) {
+	InitializeFooterMagic(footer);
 
 	strncpy(footer.internal_name, internal_name.c_str(), 0x40 - 1);
 	footer.internal_name[0x40 - 1] = '\0';

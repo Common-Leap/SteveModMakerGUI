@@ -61,13 +61,23 @@ char16_t ToLowerAscii(char16_t ch) {
 	return ch;
 }
 
-std::u16string Utf8BytesToUtf16(const std::string& input) {
+std::u16string AsciiBytesToUtf16(const std::string& input) {
 	std::u16string result;
 	result.reserve(input.size());
 	for (unsigned char ch : input) {
 		result.push_back(static_cast<char16_t>(ch));
 	}
 	return result;
+}
+
+bool IsAsciiText(const std::string& input) {
+	for (unsigned char ch : input) {
+		// Allow standard printable ASCII plus space.
+		if (ch < 0x20 || ch > 0x7E) {
+			return false;
+		}
+	}
+	return true;
 }
 
 std::u16string AsciiUpper(const std::u16string& input) {
@@ -147,10 +157,10 @@ bool WriteMsgNameTemplate(
 		text.insert(closing_tag_pos, chr3_entry);
 	}
 
-	const std::u16string username_u16 = Utf8BytesToUtf16(username);
-	const std::u16string message_u16 = Utf8BytesToUtf16(special_message.empty() ? username : special_message);
-	const std::u16string slot_code_u16 = Utf8BytesToUtf16(msg_slot_code);
-	const std::u16string slot_label_suffix = Utf8BytesToUtf16("_" + msg_slot_code + "_pickel\"");
+	const std::u16string username_u16 = AsciiBytesToUtf16(username);
+	const std::u16string message_u16 = AsciiBytesToUtf16(special_message.empty() ? username : special_message);
+	const std::u16string slot_code_u16 = AsciiBytesToUtf16(msg_slot_code);
+	const std::u16string slot_label_suffix = AsciiBytesToUtf16("_" + msg_slot_code + "_pickel\"");
 	ReplaceAll(text, u"USERNAME", AsciiUpper(username_u16));
 	ReplaceAll(text, u"Username", AsciiCapitalized(username_u16));
 	ReplaceAll(text, u"username", AsciiLower(username_u16));
@@ -200,6 +210,105 @@ bool WriteSlotUiCharaDb(const std::string& slot_code, const std::filesystem::pat
 
 	out.write(reinterpret_cast<const char*>(input_data), static_cast<std::streamsize>(input_size));
 	return static_cast<bool>(out);
+}
+
+struct RenderCompositionInputs {
+	cv::Mat headfront;
+	cv::Mat headside;
+	cv::Mat headbottom;
+	cv::Mat layerheadside;
+	cv::Mat layerheadfront;
+
+	cv::Mat rightarmfront;
+	cv::Mat leftarmfront;
+	cv::Mat layerrightarmfront;
+	cv::Mat layerleftarmfront;
+
+	cv::Mat rightarmside;
+	cv::Mat leftarmside;
+	cv::Mat layerrightarmside;
+	cv::Mat layerleftarmside;
+
+	cv::Mat bodyfront;
+	cv::Mat bodyside;
+	cv::Mat layerbodyfront;
+	cv::Mat layerbodyside;
+
+	cv::Mat rightlegside;
+	cv::Mat rightlegfront;
+	cv::Mat leftlegfront;
+	cv::Mat layerrightlegside;
+	cv::Mat layerrightlegfront;
+	cv::Mat layerleftlegfront;
+};
+
+cv::Mat ComposeRenderedSurface(
+	RenderCompositionInputs parts,
+	const cv::Mat& head_shadow,
+	const cv::Mat& leg_shadow,
+	const cv::Mat& lighting
+) {
+	cv::Mat surface(1864, 968, CV_8UC4);
+	surface.setTo(0);
+
+	AdjustBrightness(parts.bodyside, 0.2);
+	AdjustBrightness(parts.leftarmside, 0.3);
+
+	AdjustBrightness(parts.rightarmside, 0.6);
+	AdjustBrightness(parts.rightlegside, 0.4);
+	AdjustBrightness(parts.headside, 0.6);
+
+	AdjustBrightness(parts.layerbodyside, 0.2);
+	AdjustBrightness(parts.layerleftarmside, 0.3);
+
+	AdjustBrightness(parts.layerrightarmside, 0.6);
+	AdjustBrightness(parts.layerrightlegside, 0.4);
+	AdjustBrightness(parts.layerheadside, 0.6);
+
+	OverlayImage(surface, parts.leftarmside, cv::Point(0, 0));
+
+	OverlayImage(surface, parts.headbottom, cv::Point(0, 0));
+	OverlayImage(surface, parts.bodyside, cv::Point(0, 0));
+
+	OverlayImage(surface, parts.layerleftarmside, cv::Point(0, 0));
+
+	OverlayImage(surface, parts.bodyfront, cv::Point(0, 0));
+
+	OverlayImage(surface, head_shadow, cv::Point(0, 0));
+
+	OverlayImage(surface, parts.layerbodyfront, cv::Point(0, 0));
+	OverlayImage(surface, parts.layerbodyside, cv::Point(0, 0));
+
+	OverlayImage(surface, parts.headfront, cv::Point(0, 0));
+	OverlayImage(surface, parts.headside, cv::Point(0, 0));
+
+	OverlayImage(surface, parts.rightlegside, cv::Point(0, 0));
+	OverlayImage(surface, parts.rightlegfront, cv::Point(0, 0));
+	OverlayImage(surface, parts.rightarmside, cv::Point(0, 0));
+	OverlayImage(surface, parts.rightarmfront, cv::Point(0, 0));
+	OverlayImage(surface, parts.leftlegfront, cv::Point(0, 0));
+	OverlayImage(surface, parts.leftarmfront, cv::Point(0, 0));
+
+	OverlayImage(surface, parts.layerheadfront, cv::Point(0, 0));
+	OverlayImage(surface, parts.layerheadside, cv::Point(0, 0));
+
+	OverlayImage(surface, leg_shadow, cv::Point(0, 0));
+
+	OverlayImage(surface, parts.layerrightlegside, cv::Point(0, 0));
+	OverlayImage(surface, parts.layerrightarmfront, cv::Point(0, 0));
+	OverlayImage(surface, parts.layerrightarmside, cv::Point(0, 0));
+	OverlayImage(surface, parts.layerrightlegfront, cv::Point(0, 0));
+	OverlayImage(surface, parts.layerleftlegfront, cv::Point(0, 0));
+	OverlayImage(surface, parts.layerleftarmfront, cv::Point(0, 0));
+
+	std::vector<cv::Mat> surface_channels;
+	cv::split(surface, surface_channels);
+
+	cv::Mat out_lighting;
+	lighting.copyTo(out_lighting, surface_channels[3]);
+	OverlayImage(surface, out_lighting, cv::Point(0, 0));
+
+	return surface;
 }
 
 } // namespace
@@ -273,69 +382,18 @@ cv::Mat CreateRender(cv::Mat& skin, bool model) {
 		RenderPerspectiveTransformation(318, 504, 743, 512, 742, 1175, 323, 1196, PartSize::Body, layerbodyfront);
 		RenderPerspectiveTransformation(241, 515, 318, 504, 323, 1196, 244, 1166, PartSize::Size4x12, layerbodyside);
 
-		cv::Mat SURFACE(1864, 968, CV_8UC4);
-		SURFACE.setTo(0);
-
-		AdjustBrightness(bodyside, 0.2);
-		AdjustBrightness(leftarmside, 0.3);
-
-		AdjustBrightness(rightarmside, 0.6);
-		AdjustBrightness(rightlegside, 0.4);
-		AdjustBrightness(headside, 0.6);
-
-		AdjustBrightness(layerbodyside, 0.2);
-		AdjustBrightness(layerleftarmside, 0.3);
-
-		AdjustBrightness(layerrightarmside, 0.6);
-		AdjustBrightness(layerrightlegside, 0.4);
-		AdjustBrightness(layerheadside, 0.6);
-
-		OverlayImage(SURFACE, leftarmside, cv::Point(0, 0));
-
-		OverlayImage(SURFACE, headbottom, cv::Point(0, 0));
-		OverlayImage(SURFACE, bodyside, cv::Point(0, 0));
-
-		OverlayImage(SURFACE, layerleftarmside, cv::Point(0, 0));
-
-		OverlayImage(SURFACE, bodyfront, cv::Point(0, 0));
-
-		OverlayImage(SURFACE, HEAD_SHADOW, cv::Point(0, 0));
-
-		OverlayImage(SURFACE, layerbodyfront, cv::Point(0, 0));
-		OverlayImage(SURFACE, layerbodyside, cv::Point(0, 0));
-
-		OverlayImage(SURFACE, headfront, cv::Point(0, 0));
-		OverlayImage(SURFACE, headside, cv::Point(0, 0));
-
-		OverlayImage(SURFACE, rightlegside, cv::Point(0, 0));
-		OverlayImage(SURFACE, rightlegfront, cv::Point(0, 0));
-		OverlayImage(SURFACE, rightarmside, cv::Point(0, 0));
-		OverlayImage(SURFACE, rightarmfront, cv::Point(0, 0));
-		OverlayImage(SURFACE, leftlegfront, cv::Point(0, 0));
-		OverlayImage(SURFACE, leftarmfront, cv::Point(0, 0));
-
-		OverlayImage(SURFACE, layerheadfront, cv::Point(0, 0));
-		OverlayImage(SURFACE, layerheadside, cv::Point(0, 0));
-
-		OverlayImage(SURFACE, LEG_SHADOW, cv::Point(0, 0));
-
-		OverlayImage(SURFACE, layerrightlegside, cv::Point(0, 0));
-		OverlayImage(SURFACE, layerrightarmfront, cv::Point(0, 0));
-		OverlayImage(SURFACE, layerrightarmside, cv::Point(0, 0));
-		OverlayImage(SURFACE, layerrightlegfront, cv::Point(0, 0));
-		OverlayImage(SURFACE, layerleftlegfront, cv::Point(0, 0));
-		OverlayImage(SURFACE, layerleftarmfront, cv::Point(0, 0));
-
-		std::vector<cv::Mat> surface_channels;
-		cv::split(SURFACE, surface_channels);
-
-		cv::Mat OUT_LIGHTING;
-
-		LIGHTING.copyTo(OUT_LIGHTING, surface_channels[3]);
-
-		OverlayImage(SURFACE, OUT_LIGHTING, cv::Point(0, 0));
-
-		return SURFACE;
+		return ComposeRenderedSurface(
+			{
+				headfront, headside, headbottom, layerheadside, layerheadfront,
+				rightarmfront, leftarmfront, layerrightarmfront, layerleftarmfront,
+				rightarmside, leftarmside, layerrightarmside, layerleftarmside,
+				bodyfront, bodyside, layerbodyfront, layerbodyside,
+				rightlegside, rightlegfront, leftlegfront, layerrightlegside, layerrightlegfront, layerleftlegfront
+			},
+			HEAD_SHADOW,
+			LEG_SHADOW,
+			LIGHTING
+		);
 	}
 	else
 	{
@@ -404,69 +462,18 @@ cv::Mat CreateRender(cv::Mat& skin, bool model) {
 		RenderPerspectiveTransformation(318, 504, 743, 512, 742, 1175, 323, 1196, PartSize::Body, layerbodyfront);
 		RenderPerspectiveTransformation(241, 515, 318, 504, 323, 1196, 244, 1166, PartSize::Size4x12, layerbodyside);
 
-		cv::Mat SURFACE(1864, 968, CV_8UC4);
-		SURFACE.setTo(0);
-
-		AdjustBrightness(bodyside, 0.2);
-		AdjustBrightness(leftarmside, 0.3);
-
-		AdjustBrightness(rightarmside, 0.6);
-		AdjustBrightness(rightlegside, 0.4);
-		AdjustBrightness(headside, 0.6);
-
-		AdjustBrightness(layerbodyside, 0.2);
-		AdjustBrightness(layerleftarmside, 0.3);
-
-		AdjustBrightness(layerrightarmside, 0.6);
-		AdjustBrightness(layerrightlegside, 0.4);
-		AdjustBrightness(layerheadside, 0.6);
-
-		OverlayImage(SURFACE, leftarmside, cv::Point(0, 0));
-
-		OverlayImage(SURFACE, headbottom, cv::Point(0, 0));
-		OverlayImage(SURFACE, bodyside, cv::Point(0, 0));
-
-		OverlayImage(SURFACE, layerleftarmside, cv::Point(0, 0));
-
-		OverlayImage(SURFACE, bodyfront, cv::Point(0, 0));
-
-		OverlayImage(SURFACE, HEAD_SHADOW, cv::Point(0, 0));
-
-		OverlayImage(SURFACE, layerbodyfront, cv::Point(0, 0));
-		OverlayImage(SURFACE, layerbodyside, cv::Point(0, 0));
-
-		OverlayImage(SURFACE, headfront, cv::Point(0, 0));
-		OverlayImage(SURFACE, headside, cv::Point(0, 0));
-
-		OverlayImage(SURFACE, rightlegside, cv::Point(0, 0));
-		OverlayImage(SURFACE, rightlegfront, cv::Point(0, 0));
-		OverlayImage(SURFACE, rightarmside, cv::Point(0, 0));
-		OverlayImage(SURFACE, rightarmfront, cv::Point(0, 0));
-		OverlayImage(SURFACE, leftlegfront, cv::Point(0, 0));
-		OverlayImage(SURFACE, leftarmfront, cv::Point(0, 0));
-
-		OverlayImage(SURFACE, layerheadfront, cv::Point(0, 0));
-		OverlayImage(SURFACE, layerheadside, cv::Point(0, 0));
-
-		OverlayImage(SURFACE, LEG_SHADOW, cv::Point(0, 0));
-
-		OverlayImage(SURFACE, layerrightlegside, cv::Point(0, 0));
-		OverlayImage(SURFACE, layerrightarmfront, cv::Point(0, 0));
-		OverlayImage(SURFACE, layerrightarmside, cv::Point(0, 0));
-		OverlayImage(SURFACE, layerrightlegfront, cv::Point(0, 0));
-		OverlayImage(SURFACE, layerleftlegfront, cv::Point(0, 0));
-		OverlayImage(SURFACE, layerleftarmfront, cv::Point(0, 0));
-
-		std::vector<cv::Mat> surface_channels;
-		cv::split(SURFACE, surface_channels);
-
-		cv::Mat OUT_LIGHTING;
-
-		LIGHTING.copyTo(OUT_LIGHTING, surface_channels[3]);
-
-		OverlayImage(SURFACE, OUT_LIGHTING, cv::Point(0, 0));
-
-		return SURFACE;
+		return ComposeRenderedSurface(
+			{
+				headfront, headside, headbottom, layerheadside, layerheadfront,
+				rightarmfront, leftarmfront, layerrightarmfront, layerleftarmfront,
+				rightarmside, leftarmside, layerrightarmside, layerleftarmside,
+				bodyfront, bodyside, layerbodyfront, layerbodyside,
+				rightlegside, rightlegfront, leftlegfront, layerrightlegside, layerrightlegfront, layerleftlegfront
+			},
+			HEAD_SHADOW,
+			LEG_SHADOW,
+			LIGHTING
+		);
 	}
 }
 
@@ -669,6 +676,14 @@ int main(int argc, char* argv[]) {
 		}
 		if (special_message.empty()) {
 			special_message = player_name;
+		}
+		if (!IsAsciiText(player_name)) {
+			std::cerr << "[SteveModMaker::Main] Error: Player name must contain printable ASCII characters only" << std::endl;
+			return -1;
+		}
+		if (!IsAsciiText(special_message)) {
+			std::cerr << "[SteveModMaker::Main] Error: Special message must contain printable ASCII characters only" << std::endl;
+			return -1;
 		}
 	
 	skin = ConvertToModernSkin(skin, model);

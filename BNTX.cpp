@@ -95,15 +95,12 @@ void STRSection::Parse(std::istream& stream) {
 
 	stream.seekg(4, std::ios_base::cur);
 
-	for (int x = 0; x < StringCount; x++) {
-		// ew gross
+	for (uint32_t x = 0; x < StringCount; x++) {
 		stream.read((char*)&size, 2);
 		stream.seekg(2, std::ios_base::cur);
-		char* tmp = new char[size](); // zero-initalize
-		stream.read(tmp, size);
-		std::string str(tmp, size);
-		delete[] tmp;
-		Strings.push_back(str);
+		std::string str(size, '\0');
+		stream.read(str.data(), size);
+		Strings.push_back(std::move(str));
 	}
 }
 
@@ -116,8 +113,14 @@ void STRSection::Write(std::ostream& stream) {
 		stream.write(str.c_str(), str.size());
 	}
 
-	int pad_num = 0x8 - stream.tellp() % 0x8;
-	stream.seekp(pad_num, std::ios_base::cur);
+	const std::streamoff current_pos = stream.tellp();
+	if (current_pos >= 0) {
+		const std::streamoff pad_num = (0x8 - (current_pos % 0x8)) % 0x8;
+		char zero = 0;
+		for (std::streamoff i = 0; i < pad_num; ++i) {
+			stream.write(&zero, 1);
+		}
+	}
 
 }
 

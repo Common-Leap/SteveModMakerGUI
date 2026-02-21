@@ -56,11 +56,26 @@ set(CLI_SOURCES
     EmbeddedAssets.cpp
     ImageUtils.cpp
     Main.cpp
-    MsgNameTemplate.cpp
     MinecraftSkinUtil.cpp
     Nutexb.cpp
     UiCharaDbTemplate.cpp
 )
+
+set(MSG_NAME_TEMPLATE_GENERATED "${CMAKE_BINARY_DIR}/generated/MsgNameTemplate.cpp")
+add_custom_command(
+    OUTPUT "${MSG_NAME_TEMPLATE_GENERATED}"
+    COMMAND "${CMAKE_COMMAND}"
+        -DSLOT_ONE_FILE=${CMAKE_SOURCE_DIR}/Resources/msg_name_slot1_template.xmsbt
+        -DOTHER_SLOTS_FILE=${CMAKE_SOURCE_DIR}/Resources/msg_name_other_slots_template.xmsbt
+        -DOUTPUT_FILE=${MSG_NAME_TEMPLATE_GENERATED}
+        -P "${CMAKE_SOURCE_DIR}/cmake/GenerateMsgNameTemplate.cmake"
+    DEPENDS
+        "${CMAKE_SOURCE_DIR}/Resources/msg_name_slot1_template.xmsbt"
+        "${CMAKE_SOURCE_DIR}/Resources/msg_name_other_slots_template.xmsbt"
+        "${CMAKE_SOURCE_DIR}/cmake/GenerateMsgNameTemplate.cmake"
+    VERBATIM
+)
+list(APPEND CLI_SOURCES "${MSG_NAME_TEMPLATE_GENERATED}")
 
 if(NOT TEGRA_SWIZZLE_LIB)
     list(APPEND CLI_SOURCES TegraSwizzleCompat.cpp)
