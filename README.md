@@ -163,26 +163,42 @@ cmake --build build-cli --parallel
 ```powershell
 git clone https://github.com/microsoft/vcpkg C:\vcpkg
 C:\vcpkg\bootstrap-vcpkg.bat
-C:\vcpkg\vcpkg.exe install opencv4:x64-windows curl:x64-windows rapidjson:x64-windows qtbase:x64-windows
 ```
 
-### 3) Build
+### 3) Install Windows dependencies once (`x64-windows-rel` + `x64-windows-dbg`)
 
 ```powershell
 git clone https://github.com/Common-Leap/SteveModMakerLinux.git
 cd SteveModMakerLinux
 $env:VCPKG_ROOT="C:\vcpkg"
+$tripletOverlay = (Resolve-Path .\cmake\vcpkg-triplets).Path
+& "$env:VCPKG_ROOT\vcpkg.exe" install --overlay-triplets="$tripletOverlay" `
+  opencv4:x64-windows-rel curl:x64-windows-rel rapidjson:x64-windows-rel qtbase:x64-windows-rel `
+  opencv4:x64-windows-dbg curl:x64-windows-dbg rapidjson:x64-windows-dbg qtbase:x64-windows-dbg
+```
+
+### 4) Build Release
+
+```powershell
 cmake --preset release-msvc
 cmake --build --preset release-msvc
 ```
 
-### 4) Fast repeat builds (Windows)
+### 5) Build Debug (optional)
+
+```powershell
+cmake --preset debug-msvc
+cmake --build --preset debug-msvc
+```
+
+### 6) Fast repeat builds (Windows)
 
 After initial setup, you usually only need:
 
 ```powershell
 cd SteveModMakerLinux
 cmake --build --preset release-msvc
+cmake --build --preset debug-msvc
 ```
 
 When CMake configuration changes (for example `CMakeLists.txt` edits), rerun configure then build:
@@ -190,14 +206,18 @@ When CMake configuration changes (for example `CMakeLists.txt` edits), rerun con
 ```powershell
 cmake --preset release-msvc
 cmake --build --preset release-msvc
+cmake --preset debug-msvc
+cmake --build --preset debug-msvc
 ```
 
-`vcpkg install ...` does not need to be rerun unless dependencies/triplet change.
+`vcpkg install ...` does not need to be rerun unless dependencies/triplets/overlay triplets change.
 
 Artifacts:
 
 - `release-msvc/Release/SteveModMaker.exe`
 - `release-msvc/Release/SteveModMakerGUI.exe`
+- `release-msvc-dbg/Debug/SteveModMaker.exe`
+- `release-msvc-dbg/Debug/SteveModMakerGUI.exe`
 
 ## Build Linux + Windows Artifacts From Linux (All Artifacts)
 
