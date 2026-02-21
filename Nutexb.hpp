@@ -66,6 +66,7 @@ public:
     NUTEXBFooter& GetFooter();
 
     bool Open(const std::filesystem::path& filepath);
+    bool Open(const uint8_t* data, size_t size);
 
     bool ReplaceTextureFromMat(cv::Mat& mat);
 

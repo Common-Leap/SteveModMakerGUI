@@ -1,22 +1,42 @@
 #include <iostream>
+#include <array>
+#include <cstring>
 #include <filesystem>
+#include <stdexcept>
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
 #include "Nutexb.hpp"
 #include "BNTX.hpp"
 #include "Constants.hpp"
+#include "EmbeddedAssets.hpp"
 #include "ImageUtils.hpp"
 #include "MinecraftSkinUtil.hpp"
+
+namespace {
+
+cv::Mat LoadRequiredPng(const std::string& key) {
+	cv::Mat img = EmbeddedAssets::LoadPng(key);
+	if (img.empty()) {
+		throw std::runtime_error("Missing embedded image asset: " + key);
+	}
+	return img;
+}
+
+bool WriteRequiredTemplate(const std::string& arm_type, const std::string& file_name, const std::filesystem::path& output_path) {
+	const std::string template_dir = (arm_type == "small") ? "Templates/small_arms/" : "Templates/big_arms/";
+	return EmbeddedAssets::WriteFile(template_dir + file_name, output_path);
+}
+
+} // namespace
 
 cv::Mat CreateRender(cv::Mat& skin, bool model) {
 
 	if (model)
 	{
-		std::string res_path(RESOURCE_PATH);
-		cv::Mat HEAD_SHADOW = cv::imread(res_path + "/HEAD_SHADOW.png", cv::IMREAD_UNCHANGED);
-		cv::Mat LEG_SHADOW = cv::imread(res_path + "/LEG_SHADOW.png", cv::IMREAD_UNCHANGED);
-		cv::Mat LIGHTING = cv::imread(res_path + "/LIGHTING_EXP.png", cv::IMREAD_UNCHANGED);
+		cv::Mat HEAD_SHADOW = LoadRequiredPng("Resources/HEAD_SHADOW.png");
+		cv::Mat LEG_SHADOW = LoadRequiredPng("Resources/LEG_SHADOW.png");
+		cv::Mat LIGHTING = LoadRequiredPng("Resources/LIGHTING_EXP.png");
 
 		cv::Mat headfront = CropAndScale(skin, cv::Rect(8, 8, 8, 8));
 		cv::Mat headside = CropAndScale(skin, cv::Rect(0, 8, 8, 8));
@@ -145,10 +165,9 @@ cv::Mat CreateRender(cv::Mat& skin, bool model) {
 	}
 	else
 	{
-		std::string res_path(RESOURCE_PATH);
-		cv::Mat HEAD_SHADOW = cv::imread(res_path + "/HEAD_SHADOW.png", cv::IMREAD_UNCHANGED);
-		cv::Mat LEG_SHADOW = cv::imread(res_path + "/LEG_SHADOW.png", cv::IMREAD_UNCHANGED);
-		cv::Mat LIGHTING = cv::imread(res_path + "/LIGHTING_EXP.png", cv::IMREAD_UNCHANGED);
+		cv::Mat HEAD_SHADOW = LoadRequiredPng("Resources/HEAD_SHADOW.png");
+		cv::Mat LEG_SHADOW = LoadRequiredPng("Resources/LEG_SHADOW.png");
+		cv::Mat LIGHTING = LoadRequiredPng("Resources/LIGHTING_EXP.png");
 
 		cv::Mat headfront = CropAndScale(skin, cv::Rect(8, 8, 8, 8));
 		cv::Mat headside = CropAndScale(skin, cv::Rect(0, 8, 8, 8));
@@ -287,6 +306,8 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
+	try {
+
 	// Parse slot number (1-8)
 	int slot_input = std::stoi(argv[2]);
 	if (slot_input < 1 || slot_input > 8) {
@@ -347,25 +368,25 @@ int main(int argc, char* argv[]) {
 
 	std::cout << "[SteveModMaker::Main] Creating output directories..." << std::endl;
 
-	// Copy fighter template files from arm type templates
-	std::string template_dir = "/home/leap/Workshop/fighter/pickel/model/body/c[00-07] (" + arm_type + " arms)";
-	std::string target_slot = "./patch/fighter/pickel/model/body/c" + C0X;
-	
-	if (std::filesystem::exists(template_dir)) {
-		std::cout << "[SteveModMaker::Main] Copying fighter template files..." << std::endl;
-		std::filesystem::create_directories(target_slot);
-		
-		// Copy all template files except the texture
-		for (const auto& entry : std::filesystem::directory_iterator(template_dir)) {
-			std::string filename = entry.path().filename().string();
-			if (filename != "def_pickel_001_col.nutexb") {
-				std::filesystem::copy_file(entry.path(), target_slot + "/" + filename, std::filesystem::copy_options::overwrite_existing);
-			}
+	const std::filesystem::path target_slot = "./patch/fighter/pickel/model/body/c" + C0X;
+	std::cout << "[SteveModMaker::Main] Writing fighter template files..." << std::endl;
+	std::filesystem::create_directories(target_slot);
+	const std::array<const char*, 9> fighter_template_files = {
+		"dark_model.numatb",
+		"light_model.numatb",
+		"metamon_model.numatb",
+		"model.numatb",
+		"model.numdlb",
+		"model.numshb",
+		"model.numshexb",
+		"model.nusrcmdlb",
+		"model.xmb"
+	};
+	for (const char* file_name : fighter_template_files) {
+		if (!WriteRequiredTemplate(arm_type, file_name, target_slot / file_name)) {
+			std::cerr << "[SteveModMaker::Main] Error: Missing embedded fighter template file: " << file_name << std::endl;
+			return -1;
 		}
-	}
-	else {
-		std::cerr << "[SteveModMaker::Main] Error: Missing fighter template directory: " << template_dir << std::endl;
-		return -1;
 	}
 	
 	// Ensure UI directories exist for character select screen files
@@ -374,25 +395,25 @@ int main(int argc, char* argv[]) {
 	std::filesystem::create_directories("./patch/ui/replace_patch/chara/chara_2");
 	std::filesystem::create_directories("./patch/ui/replace_patch/chara/chara_3");
 	std::filesystem::create_directories("./patch/ui/replace_patch/chara/chara_4");
+	std::filesystem::create_directories("./patch/ui/replace_patch/chara/chara_5");
 	std::filesystem::create_directories("./patch/ui/replace_patch/chara/chara_6");
 
 	cv::Mat chara_0;
 	cv::Mat chara_1;
 	cv::Mat chara_4;
 
-	std::string masks_path(CHARA_MASKS_PATH);
-	cv::Mat chara_2 = cv::imread(masks_path + "/chara_2_pickel_00.png", cv::IMREAD_UNCHANGED);
-	cv::Mat chara_4_mask = cv::imread(masks_path + "/chara_4_mask.png", cv::IMREAD_UNCHANGED);
+	cv::Mat chara_2 = LoadRequiredPng("Chara_Masks/chara_2_pickel_00.png");
+	cv::Mat chara_4_mask = LoadRequiredPng("Chara_Masks/chara_4_mask.png");
 
 	if (C0X_ % 2 == 0) { // Uses a steve slot.
-		chara_0 = cv::imread(masks_path + "/chara_0_pickel_00.png", cv::IMREAD_UNCHANGED);
-		chara_1 = cv::imread(masks_path + "/chara_1_pickel_00.png", cv::IMREAD_UNCHANGED);
-		chara_4 = cv::imread(masks_path + "/chara_4_pickel_00.png", cv::IMREAD_UNCHANGED);
+		chara_0 = LoadRequiredPng("Chara_Masks/chara_0_pickel_00.png");
+		chara_1 = LoadRequiredPng("Chara_Masks/chara_1_pickel_00.png");
+		chara_4 = LoadRequiredPng("Chara_Masks/chara_4_pickel_00.png");
 	}
 	else {
-		chara_0 = cv::imread(masks_path + "/chara_0_pickel_01.png", cv::IMREAD_UNCHANGED);
-		chara_1 = cv::imread(masks_path + "/chara_1_pickel_01.png", cv::IMREAD_UNCHANGED);
-		chara_4 = cv::imread(masks_path + "/chara_4_pickel_01.png", cv::IMREAD_UNCHANGED);
+		chara_0 = LoadRequiredPng("Chara_Masks/chara_0_pickel_01.png");
+		chara_1 = LoadRequiredPng("Chara_Masks/chara_1_pickel_01.png");
+		chara_4 = LoadRequiredPng("Chara_Masks/chara_4_pickel_01.png");
 	}
 
 	std::cout << "[SteveModMaker::Main] Creating chara_0 image..." << std::endl;
@@ -441,7 +462,7 @@ int main(int argc, char* argv[]) {
 	// chara_5
 	if (C0X_ == 0) {
 		std::cout << "[SteveModMaker::Main] Creating chara_5 image..." << std::endl;
-		cv::Mat chara_5 = cv::imread(masks_path + "/chara_5_pickel_00.png", cv::IMREAD_UNCHANGED);
+		cv::Mat chara_5 = LoadRequiredPng("Chara_Masks/chara_5_pickel_00.png");
 
 		cv::Mat render_cpy(267, 527, CV_8UC4);
 		cv::resize(base_render, render_cpy, cv::Size(267, 527), 0, 0, cv::INTER_LANCZOS4);
@@ -452,7 +473,7 @@ int main(int argc, char* argv[]) {
 	}
 	else if (C0X_ == 1) {
 		std::cout << "[SteveModMaker::Main] Creating chara_5 image..." << std::endl;
-		cv::Mat chara_5 = cv::imread(masks_path + "/chara_5_pickel_01.png", cv::IMREAD_UNCHANGED);
+		cv::Mat chara_5 = LoadRequiredPng("Chara_Masks/chara_5_pickel_01.png");
 
 		cv::Mat render_cpy(267, 527, CV_8UC4);
 		cv::resize(base_render, render_cpy, cv::Size(267, 527), 0, 0, cv::INTER_LANCZOS4);
@@ -475,11 +496,12 @@ int main(int argc, char* argv[]) {
 	std::cout << "[SteveModMaker::Main] Writing fighter texture..." << std::endl;
 	ColorCorrectSkin(skin);
 	const std::filesystem::path output_nutexb = "./patch/fighter/pickel/model/body/c" + C0X + "/def_pickel_001_col.nutexb";
-	const std::filesystem::path base_nutexb = std::filesystem::path(RESOURCE_PATH) / "def_pickel_001_col_template.nutexb";
+	const std::string base_template_key = std::string("Templates/") + (model ? "small_arms/" : "big_arms/") + "def_pickel_001_col.nutexb";
+	const EmbeddedAssets::AssetView* base_asset = EmbeddedAssets::Find(base_template_key);
 
 	NUTEXB nut;
-	if (std::filesystem::exists(base_nutexb) && nut.Open(base_nutexb) && nut.ReplaceTextureFromMat(skin)) {
-		std::cout << "[SteveModMaker::Main] Using base def_pickel_001_col.nutexb template from " << base_nutexb << std::endl;
+	if (base_asset != nullptr && nut.Open(base_asset->data, base_asset->size) && nut.ReplaceTextureFromMat(skin)) {
+		std::cout << "[SteveModMaker::Main] Using embedded def_pickel_001_col.nutexb template (" << arm_type << " arms)" << std::endl;
 		nut.Save(output_nutexb, 0);
 	}
 	else {
@@ -491,5 +513,11 @@ int main(int argc, char* argv[]) {
 	std::cout << "[SteveModMaker::Main] Done!" << std::endl;
 
 	return 0;
+
+	}
+	catch (const std::exception& ex) {
+		std::cerr << "[SteveModMaker::Main] Fatal error: " << ex.what() << std::endl;
+		return -1;
+	}
 	
 }

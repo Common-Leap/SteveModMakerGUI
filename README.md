@@ -1,10 +1,34 @@
 # SteveModMaker
 A tool for generating Steve/Alex mods for Super Smash Bros. Ultimate. Tested on Arch Linux.
+# Quick Start Guide
+### Arch:
+1. Install basic dependencies:
+    ```bash
+    sudo pacman -S opencv curl gcc-libs
+    ```
+2. Build and Install tegra_swizzle
+
+    -Build with
+     ```bash
+    git clone https://github.com/ScanMountGoat/tegra_swizzle.git
+    cd tegra_swizzle
+    cargo rustc --release --crate-type=cdylib --features=ffi
+    ```
+
+    -Install with
+    ```bash
+    sudo cp target/release/libtegra_swizzle.so /usr/local/lib/
+    sudo ldconfig
+    ```
+3. Download the latest release, make it executable with chmod or a gui, and run it with this command in the same directory
+    ```bash
+    ./SteveModMaker <Username> <Skin Slot>
+    ```
 
 # Building 
 ## Prerequisites
 
-Before building, install the required development dependencies:
+Before building, install the required dependencies:
 
 - C++17 compiler (`g++`/`clang++`)
 - CMake 3.21+ (required by `CMakePresets.json`)

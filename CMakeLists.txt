@@ -19,6 +19,7 @@ include_directories(${OPENCV_INCLUDE_DIRS})
 set(SOURCES
     Base64.cpp
     BNTX.cpp
+    EmbeddedAssets.cpp
     ImageUtils.cpp
     Main.cpp
     MinecraftSkinUtil.cpp
@@ -30,6 +31,7 @@ set(HEADERS
     Base64.hpp
     BNTX.hpp
     Constants.hpp
+    EmbeddedAssets.hpp
     ImageUtils.hpp
     MinecraftSkinUtil.hpp
     Nutexb.hpp
@@ -38,12 +40,6 @@ set(HEADERS
 
 # Create executable
 add_executable(SteveModMaker ${SOURCES} ${HEADERS})
-
-# Define resource directories at compile time
-target_compile_definitions(SteveModMaker PRIVATE 
-    RESOURCE_PATH="${CMAKE_SOURCE_DIR}/Resources"
-    CHARA_MASKS_PATH="${CMAKE_SOURCE_DIR}/Chara_Masks"
-)
 
 # Link libraries
 target_link_libraries(SteveModMaker PRIVATE 
@@ -57,6 +53,5 @@ if(TEGRA_SWIZZLE_LIB)
     message(STATUS "Found tegra_swizzle: ${TEGRA_SWIZZLE_LIB}")
 else()
     message(WARNING "tegra_swizzle library not found. Make sure it is installed.")
-    message(WARNING "See BUILDING_ON_LINUX.md for instructions on building tegra_swizzle.")
+    message(WARNING "See README.md for instructions on building tegra_swizzle.")
 endif()
-

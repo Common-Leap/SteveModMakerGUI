@@ -26,6 +26,21 @@ bool NUTEXB::Open(const std::filesystem::path& filepath) {
 	return true;
 };
 
+bool NUTEXB::Open(const uint8_t* data, size_t size) {
+	if (data == nullptr || size < sizeof(NUTEXBFooter)) {
+		return false;
+	}
+
+	const size_t footer_offset = size - sizeof(NUTEXBFooter);
+	memcpy(&footer, data + footer_offset, sizeof(NUTEXBFooter));
+	if (footer.size == 0 || footer.size > footer_offset) {
+		return false;
+	}
+
+	IMAGE_DATA.assign(data, data + footer.size);
+	return true;
+}
+
 bool NUTEXB::ReplaceTextureFromMat(cv::Mat& mat) {
 	if (mat.empty()) {
 		return false;
