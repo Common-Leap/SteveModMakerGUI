@@ -725,14 +725,17 @@ int main(int argc, char* argv[]) {
 
 	if (C0X_ % 2 == 0) { // Uses a steve slot.
 		chara_0 = LoadRequiredPng("Chara_Masks/chara_0_pickel_00.png");
-		chara_1 = LoadRequiredPng("Chara_Masks/chara_1_pickel_00.png");
 		chara_4 = LoadRequiredPng("Chara_Masks/chara_4_pickel_00.png");
 	}
 	else {
 		chara_0 = LoadRequiredPng("Chara_Masks/chara_0_pickel_01.png");
-		chara_1 = LoadRequiredPng("Chara_Masks/chara_1_pickel_01.png");
 		chara_4 = LoadRequiredPng("Chara_Masks/chara_4_pickel_01.png");
 	}
+
+	// chara_1 shadow/mask should match selected arm size, not costume slot.
+	chara_1 = model
+		? LoadRequiredPng("Chara_Masks/chara_1_pickel_01.png")
+		: LoadRequiredPng("Chara_Masks/chara_1_pickel_00.png");
 
 	std::cout << "[SteveModMaker::Main] Creating chara_0 image..." << std::endl;
 	{ // chara_0

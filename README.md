@@ -55,34 +55,28 @@ CLI usage example:
 ## CLI Usage
 
 ```text
-SteveModMaker <minecraft_username> <slot_number> [arm_type]
-SteveModMaker <minecraft_username> --patch-subdir <folder_name> <slot_number> [arm_type]
-SteveModMaker <minecraft_username> -p <folder_name> <slot_number> [arm_type]
-SteveModMaker <minecraft_username> --special-message <boxing_ring_message> <slot_number> [arm_type]
-SteveModMaker <minecraft_username> -m <boxing_ring_message> <slot_number> [arm_type]
-SteveModMaker --skin-file <skin_png_path> <slot_number> [arm_type]
-SteveModMaker -f <skin_png_path> <slot_number> [arm_type]
-SteveModMaker --skin-file <skin_png_path> --player-name <minecraft_username> <slot_number> [arm_type]
-SteveModMaker -f <skin_png_path> -n <minecraft_username> <slot_number> [arm_type]
-SteveModMaker --skin-file <skin_png_path> --patch-subdir <folder_name> <slot_number> [arm_type]
-SteveModMaker -f <skin_png_path> -p <folder_name> <slot_number> [arm_type]
-SteveModMaker --skin-file <skin_png_path> --special-message <boxing_ring_message> <slot_number> [arm_type]
-SteveModMaker -f <skin_png_path> -m <boxing_ring_message> <slot_number> [arm_type]
+SteveModMaker <minecraft_username> [--patch-subdir <folder_name>] [--special-message <boxing_ring_message>] <slot_number> [arm_type]
+SteveModMaker --skin-file <skin_png_path> [--player-name <minecraft_username>] [--patch-subdir <folder_name>] [--special-message <boxing_ring_message>] <slot_number> [arm_type]
 ```
 
 - `slot_number`: `1` through `8`
 - `arm_type` (optional): `small` or `big`
+- `--skin-file` / `-f`: read skin from a local PNG instead of downloading by username
+- `--player-name` / `-n`: output/display name override (valid with `--skin-file`)
+- `--patch-subdir` / `-p`: write output under `./<folder_name>/...` instead of `./...`
 - `--special-message` / `-m` (optional): Boxing Ring message text; if omitted, username is used
+- Option flags must appear before `<slot_number>`. After `<slot_number>`, only optional `[arm_type]` is accepted.
 
 Examples:
 
 ```bash
 ./SteveModMaker Steve 1
 ./SteveModMaker Steve -p "(Skin) Steve - slot1" 1
+./SteveModMaker Steve -p "(Skin) Steve - slot1" -m "The Builder" 1 big
 ./SteveModMaker --skin-file ./my_skin.png 2
 ./SteveModMaker --skin-file ./my_skin.png 3 small
 ./SteveModMaker --skin-file ./my_skin.png --player-name Steve 1
-./SteveModMaker --skin-file ./my_skin.png --player-name Steve --patch-subdir "(Skin) Steve - slot1" 1
+./SteveModMaker --skin-file ./my_skin.png --player-name Steve --patch-subdir "(Skin) Steve - slot1" --special-message "The Builder" 1
 ./SteveModMaker Steve -m "The Builder" 1
 ```
 
@@ -136,12 +130,23 @@ Artifacts:
 - `release/SteveModMaker`
 - `release/SteveModMakerGUI`
 
-On Linux x86_64, AppImage packaging is enabled by default in this preset.
+On Linux x86_64, AppImage packaging is enabled by default in this preset (when GUI is enabled).
+This runs `scripts/build-appimage.sh` and writes an AppImage in `release/`.
 Disable it if needed:
 
 ```bash
 cmake --preset release -DSTEVE_MOD_MAKER_AUTO_APPIMAGE=OFF
 cmake --build --preset release
+```
+
+CLI-only build (no Qt/GUI):
+
+```bash
+cmake -S . -B build-cli -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DSTEVE_MOD_MAKER_BUILD_GUI=OFF \
+  -DSTEVE_MOD_MAKER_AUTO_APPIMAGE=OFF
+cmake --build build-cli --parallel
 ```
 
 ## Build From Fresh Install (Windows 11, Native)
@@ -188,6 +193,7 @@ Ubuntu/Debian:
 sudo apt-get update
 sudo apt-get install -y \
   build-essential cmake ninja-build pkg-config git \
+  libopencv-dev libcurl4-openssl-dev rapidjson-dev qt6-base-dev \
   mingw-w64 \
   autoconf autoconf-archive automake libtool
 ```
@@ -197,6 +203,7 @@ Fedora:
 ```bash
 sudo dnf install -y \
   gcc-c++ cmake ninja-build pkgconf-pkg-config git \
+  opencv-devel curl-devel rapidjson-devel qt6-qtbase-devel \
   mingw64-gcc mingw64-gcc-c++ \
   autoconf autoconf-archive automake libtool
 ```
@@ -205,8 +212,16 @@ Arch:
 
 ```bash
 sudo pacman -S --needed \
-  mingw-w64-gcc cmake ninja git \
+  base-devel cmake ninja git pkgconf \
+  opencv curl rapidjson qt6-base \
+  mingw-w64-gcc \
   autoconf autoconf-archive automake libtool
+```
+
+If you only need Windows artifacts, you can skip the Linux stage:
+
+```bash
+./scripts/build-linux-and-windows.sh --skip-linux --vcpkg-root "$HOME/vcpkg"
 ```
 
 ### 2) Prepare vcpkg
@@ -246,7 +261,7 @@ ls -lh release/SteveModMaker release/SteveModMakerGUI release/SteveModMaker.exe 
 
 ## AppImage Packaging (Manual)
 
-Automatic AppImage packaging is enabled for Linux x86_64 in normal preset builds.
+Automatic AppImage packaging is enabled for Linux x86_64 preset builds when GUI is enabled.
 You can also run packaging directly:
 
 ```bash
@@ -283,9 +298,9 @@ rm -rf release/.build-windows
 ./scripts/build-linux-and-windows.sh --vcpkg-root "$HOME/vcpkg"
 ```
 
-### `vcpkg executable not found at /absolute/path/to/vcpkg/vcpkg`
+### `Unable to find vcpkg. Set VCPKG_ROOT to your vcpkg root or executable path.`
 
-`/absolute/path/to/vcpkg` is a placeholder. Replace it with your real path.
+Set `VCPKG_ROOT` or pass `--vcpkg-root` to the build script with a real path.
 
 Correct example:
 
