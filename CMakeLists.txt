@@ -56,8 +56,10 @@ set(CLI_SOURCES
     EmbeddedAssets.cpp
     ImageUtils.cpp
     Main.cpp
+    MsgNameTemplate.cpp
     MinecraftSkinUtil.cpp
     Nutexb.cpp
+    UiCharaDbTemplate.cpp
 )
 
 if(NOT TEGRA_SWIZZLE_LIB)
@@ -71,8 +73,10 @@ set(CLI_HEADERS
     EmbeddedAssets.hpp
     ImageUtils.hpp
     MinecraftSkinUtil.hpp
+    MsgNameTemplate.hpp
     Nutexb.hpp
     tegra_swizzle.hpp
+    UiCharaDbTemplate.hpp
 )
 
 add_executable(SteveModMaker ${CLI_SOURCES} ${CLI_HEADERS})

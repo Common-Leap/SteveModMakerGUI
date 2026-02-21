@@ -32,17 +32,16 @@
 *.app
 
 # Project-generated artifacts
-build/
-release/
-patch/
-build-appimage/
-tools/appimage/
+/build*/
+/release*/
+/patch/
+/tools/appimage/
 *.AppImage
 
-# Additional generated build directories
-build-linux/
-build-windows/
-release-mingw-static/
-release-ninja/
-release-msvc/
-cmake-build-*/
+# In-source CMake output (if someone configures in the repo root)
+/cmake-build-*/
+/CMakeCache.txt
+/CMakeFiles/
+/cmake_install.cmake
+/compile_commands.json
+/Makefile

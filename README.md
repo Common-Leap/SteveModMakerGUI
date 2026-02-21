@@ -56,22 +56,42 @@ CLI usage example:
 
 ```text
 SteveModMaker <minecraft_username> <slot_number> [arm_type]
+SteveModMaker <minecraft_username> --patch-subdir <folder_name> <slot_number> [arm_type]
+SteveModMaker <minecraft_username> -p <folder_name> <slot_number> [arm_type]
+SteveModMaker <minecraft_username> --special-message <boxing_ring_message> <slot_number> [arm_type]
+SteveModMaker <minecraft_username> -m <boxing_ring_message> <slot_number> [arm_type]
 SteveModMaker --skin-file <skin_png_path> <slot_number> [arm_type]
 SteveModMaker -f <skin_png_path> <slot_number> [arm_type]
+SteveModMaker --skin-file <skin_png_path> --player-name <minecraft_username> <slot_number> [arm_type]
+SteveModMaker -f <skin_png_path> -n <minecraft_username> <slot_number> [arm_type]
+SteveModMaker --skin-file <skin_png_path> --patch-subdir <folder_name> <slot_number> [arm_type]
+SteveModMaker -f <skin_png_path> -p <folder_name> <slot_number> [arm_type]
+SteveModMaker --skin-file <skin_png_path> --special-message <boxing_ring_message> <slot_number> [arm_type]
+SteveModMaker -f <skin_png_path> -m <boxing_ring_message> <slot_number> [arm_type]
 ```
 
 - `slot_number`: `1` through `8`
 - `arm_type` (optional): `small` or `big`
+- `--special-message` / `-m` (optional): Boxing Ring message text; if omitted, username is used
 
 Examples:
 
 ```bash
 ./SteveModMaker Steve 1
+./SteveModMaker Steve -p "(Skin) Steve - slot1" 1
 ./SteveModMaker --skin-file ./my_skin.png 2
 ./SteveModMaker --skin-file ./my_skin.png 3 small
+./SteveModMaker --skin-file ./my_skin.png --player-name Steve 1
+./SteveModMaker --skin-file ./my_skin.png --player-name Steve --patch-subdir "(Skin) Steve - slot1" 1
+./SteveModMaker Steve -m "The Builder" 1
 ```
 
-Output is written under `./patch/...` relative to the current working directory.
+Output is written under `./...` relative to the current working directory.
+With `--patch-subdir`, output is written under `./<folder_name>/...`.
+This includes `./ui/message/msg_name.xmsbt` (or `./<folder_name>/ui/message/msg_name.xmsbt`), generated from bundled templates:
+- slot 1 uses `Resources/msg_name_slot1_template.xmsbt`
+- slots 2-8 use `Resources/msg_name_other_slots_template.xmsbt`
+It also writes `./ui/param/database/ui_chara_db.prcx` from bundled slot templates in source code for the selected slot.
 
 ## Build From Fresh Install (Linux)
 

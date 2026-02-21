@@ -27,6 +27,8 @@ private:
 	QComboBox* source_mode_input_;
 	QLineEdit* username_input_;
 	QLineEdit* skin_file_input_;
+	QLineEdit* skin_file_player_name_input_;
+	QLineEdit* special_message_input_;
 	QPushButton* browse_skin_button_;
 	QSpinBox* slot_input_;
 	QComboBox* arm_override_input_;
