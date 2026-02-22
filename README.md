@@ -1,3 +1,8 @@
+# HEY! Don't ever use this to publish a skin on gamebanna unless you add something this tool can't do! People have to spend time reveiwing what you post, and anybody could come and use this tool!
+
+Q: Why did you make this when we have the smash-minecraft-skins plugin, and people could use this to spam?
+A: I didn't like have my whole group of 4 people having to wait for 15 seconds every time somebody wanted to play steve, and I figured other people didn't either.
+
 # SteveModMaker
 
 Generate Steve/Alex mods for Super Smash Bros. Ultimate from Minecraft skins.
@@ -8,12 +13,6 @@ This project provides two executables:
 - `SteveModMakerGUI`: desktop GUI that runs the CLI
 
 Windows baseline target: Windows 11 x64.
-
-## What Builds Where
-
-- Linux native build on Linux: `SteveModMaker` + `SteveModMakerGUI`
-- Windows native build on Windows: `SteveModMaker.exe` + `SteveModMakerGUI.exe`
-- Windows cross-build on Linux: `SteveModMaker.exe` + `SteveModMakerGUI.exe`
 
 ## Quick Start (No Build)
 
