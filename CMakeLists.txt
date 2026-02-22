@@ -133,6 +133,7 @@ if(STEVE_MOD_MAKER_BUILD_GUI)
             GuiWindow.cpp
             GuiWindow.hpp
         )
+        add_dependencies(SteveModMakerGUI SteveModMaker)
         target_link_libraries(SteveModMakerGUI PRIVATE ${STEVE_MOD_MAKER_QT_WIDGETS_TARGET})
         target_compile_definitions(SteveModMakerGUI PRIVATE SMM_CLI_BINARY_NAME=\"SteveModMaker\")
     else()
@@ -142,6 +143,52 @@ if(STEVE_MOD_MAKER_BUILD_GUI)
             "Install Qt6/Qt5 Widgets dev packages (or vcpkg qtbase), "
             "or configure with -DSTEVE_MOD_MAKER_BUILD_GUI=OFF for CLI-only builds."
         )
+    endif()
+endif()
+
+if(WIN32)
+    add_custom_command(
+        TARGET SteveModMaker POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            $<TARGET_RUNTIME_DLLS:SteveModMaker>
+            $<TARGET_FILE_DIR:SteveModMaker>
+        COMMAND_EXPAND_LISTS
+    )
+
+    if(TARGET SteveModMakerGUI)
+        add_custom_command(
+            TARGET SteveModMakerGUI POST_BUILD
+            COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                $<TARGET_RUNTIME_DLLS:SteveModMakerGUI>
+                $<TARGET_FILE_DIR:SteveModMakerGUI>
+            COMMAND_EXPAND_LISTS
+        )
+        add_custom_command(
+            TARGET SteveModMakerGUI POST_BUILD
+            COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                $<TARGET_FILE:SteveModMaker>
+                $<TARGET_FILE_DIR:SteveModMakerGUI>
+        )
+
+        set(SMM_QT_QMAKE_TARGET "")
+        if(TARGET Qt6::qmake)
+            set(SMM_QT_QMAKE_TARGET "Qt6::qmake")
+        elseif(TARGET Qt5::qmake)
+            set(SMM_QT_QMAKE_TARGET "Qt5::qmake")
+        endif()
+
+        if(SMM_QT_QMAKE_TARGET)
+            add_custom_command(
+                TARGET SteveModMakerGUI POST_BUILD
+                COMMAND "${CMAKE_COMMAND}"
+                    -DQT_QMAKE_EXE=$<TARGET_FILE:${SMM_QT_QMAKE_TARGET}>
+                    -DOUTPUT_DIR=$<TARGET_FILE_DIR:SteveModMakerGUI>
+                    -P "${CMAKE_SOURCE_DIR}/cmake/DeployQtPlugins.cmake"
+                VERBATIM
+            )
+        else()
+            message(WARNING "Qt qmake target not found; automatic Qt platform plugin deployment is disabled.")
+        endif()
     endif()
 endif()
 

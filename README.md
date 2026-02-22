@@ -423,11 +423,48 @@ Install those host tools from your distro package manager, then rerun the build.
 
 ### Windows `.exe` does not start
 
-Ensure the runtime DLLs are next to the executable:
+Reconfigure + rebuild so CMake copies runtime DLL dependencies next to the `.exe` files:
 
-- `libgcc_s_seh-1.dll`
-- `libstdc++-6.dll`
-- `libwinpthread-1.dll`
+```powershell
+cmake --preset msvc-unified
+cmake --build --preset release-msvc-unified --parallel
+```
+
+Then run from:
+
+- `release-msvc-unified/Release/SteveModMakerGUI.exe`
+
+Expected after a successful build:
+
+- `release-msvc-unified/Release/platforms/qwindows.dll` (or `qwindowsd.dll` in Debug)
+
+If a DLL/plugin error still appears, share the exact popup text.
+
+### `qt.qpa.plugin: Could not find the Qt platform plugin "windows"`
+
+This means Qt platform plugins were not deployed beside `SteveModMakerGUI.exe`.
+
+First, rebuild with the unified preset:
+
+```powershell
+cmake --preset msvc-unified
+cmake --build --preset release-msvc-unified --parallel
+```
+
+If `release-msvc-unified/Release/platforms/qwindows.dll` is still missing, deploy Qt plugins manually:
+
+```powershell
+$gui = ".\release-msvc-unified\Release\SteveModMakerGUI.exe"
+$windeploy = "$env:VCPKG_ROOT\installed\x64-windows-dbg\tools\Qt6\bin\windeployqt.exe"
+if (!(Test-Path $windeploy)) { $windeploy = "$env:VCPKG_ROOT\installed\x64-windows-rel\tools\Qt6\bin\windeployqt.exe" }
+& $windeploy $gui
+```
+
+Then run:
+
+```powershell
+.\release-msvc-unified\Release\SteveModMakerGUI.exe
+```
 
 ### GUI cannot find CLI
 
