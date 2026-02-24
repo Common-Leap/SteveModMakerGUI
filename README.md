@@ -1,4 +1,4 @@
-# HEY! Don't ever use this to publish a skin on gamebanna unless you add something this tool can't do! People have to spend time reveiwing what you post, and anybody could come and use this tool!
+# HEY! Don't ever use this to publish a skin on gamebanna unless you add something this tool can't do! People have to spend time reviewing what you post, and anybody could come and use this tool!
 
 Q: Why did you make this when we have the smash-minecraft-skins plugin, and people could use this to spam?
 
