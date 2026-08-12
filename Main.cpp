@@ -16,6 +16,7 @@
 #include "ImageUtils.hpp"
 #include "MinecraftSkinUtil.hpp"
 #include "MsgNameTemplate.hpp"
+#include "RenderLighting.hpp"
 #include "UiCharaDbTemplate.hpp"
 
 namespace {
@@ -242,28 +243,22 @@ struct RenderCompositionInputs {
 	cv::Mat layerleftlegfront;
 };
 
+// Crops one cube face out of the skin, scales it up to render resolution, and
+// applies that face's lighting while it is still in UV space -- see
+// RenderLighting.hpp for why the lighting has to be applied before the warp.
+cv::Mat LitFace(cv::Mat& skin, cv::Rect rect, CubeFace face, cv::Size uv_extent = cv::Size()) {
+	cv::Mat texture = CropAndScale(skin, rect);
+	ApplyFaceLighting(texture, face, uv_extent);
+	return texture;
+}
+
 cv::Mat ComposeRenderedSurface(
 	RenderCompositionInputs parts,
 	const cv::Mat& head_shadow,
-	const cv::Mat& leg_shadow,
-	const cv::Mat& lighting
+	const cv::Mat& leg_shadow
 ) {
 	cv::Mat surface(1864, 968, CV_8UC4);
 	surface.setTo(0);
-
-	AdjustBrightness(parts.bodyside, 0.2);
-	AdjustBrightness(parts.leftarmside, 0.3);
-
-	AdjustBrightness(parts.rightarmside, 0.6);
-	AdjustBrightness(parts.rightlegside, 0.4);
-	AdjustBrightness(parts.headside, 0.6);
-
-	AdjustBrightness(parts.layerbodyside, 0.2);
-	AdjustBrightness(parts.layerleftarmside, 0.3);
-
-	AdjustBrightness(parts.layerrightarmside, 0.6);
-	AdjustBrightness(parts.layerrightlegside, 0.4);
-	AdjustBrightness(parts.layerheadside, 0.6);
 
 	OverlayImage(surface, parts.leftarmside, cv::Point(0, 0));
 
@@ -301,12 +296,21 @@ cv::Mat ComposeRenderedSurface(
 	OverlayImage(surface, parts.layerleftlegfront, cv::Point(0, 0));
 	OverlayImage(surface, parts.layerleftarmfront, cv::Point(0, 0));
 
-	std::vector<cv::Mat> surface_channels;
-	cv::split(surface, surface_channels);
-
-	cv::Mat out_lighting;
-	lighting.copyTo(out_lighting, surface_channels[3]);
-	OverlayImage(surface, out_lighting, cv::Point(0, 0));
+	// Preserve the opaque contour while adding the official render's soft outer
+	// coverage ramp. Union the blurred alpha with the original instead of
+	// blurring the contour inward; skin texel boundaries remain crisp.
+	cv::Mat alpha;
+	cv::extractChannel(surface, alpha, 3);
+	cv::Mat blurred_alpha;
+	cv::GaussianBlur(alpha, blurred_alpha, cv::Size(0, 0), 1.9, 1.9, cv::BORDER_CONSTANT);
+	cv::Mat alpha_float;
+	cv::Mat blurred_float;
+	alpha.convertTo(alpha_float, CV_32F, 1.0 / 255.0);
+	blurred_alpha.convertTo(blurred_float, CV_32F, 1.0 / 255.0);
+	cv::Mat union_alpha = alpha_float + blurred_float - alpha_float.mul(blurred_float);
+	union_alpha *= 255.0;
+	union_alpha.convertTo(alpha, CV_8U);
+	cv::insertChannel(alpha, surface, 3);
 
 	return surface;
 }
@@ -319,35 +323,37 @@ cv::Mat CreateRender(cv::Mat& skin, bool model) {
 	{
 		cv::Mat HEAD_SHADOW = LoadRequiredPng("Resources/HEAD_SHADOW.png");
 		cv::Mat LEG_SHADOW = LoadRequiredPng("Resources/LEG_SHADOW.png");
-		cv::Mat LIGHTING = LoadRequiredPng("Resources/LIGHTING_EXP.png");
 
-		cv::Mat headfront = CropAndScale(skin, cv::Rect(8, 8, 8, 8));
-		cv::Mat headside = CropAndScale(skin, cv::Rect(0, 8, 8, 8));
-		cv::Mat headbottom = CropAndScale(skin, cv::Rect(16, 0, 8, 8));
-		cv::Mat layerheadside = CropAndScale(skin, cv::Rect(32, 8, 8, 8));
-		cv::Mat layerheadfront = CropAndScale(skin, cv::Rect(40, 8, 8, 8));
+		cv::Mat headfront = LitFace(skin, cv::Rect(8, 8, 8, 8), CubeFace::HeadFront);
+		cv::Mat headside = LitFace(skin, cv::Rect(0, 8, 8, 8), CubeFace::HeadSide);
+		cv::Mat headbottom = LitFace(skin, cv::Rect(16, 0, 8, 8), CubeFace::HeadBottom);
+		cv::Mat layerheadside = LitFace(skin, cv::Rect(32, 8, 8, 8), CubeFace::HeadSide);
+		cv::Mat layerheadfront = LitFace(skin, cv::Rect(40, 8, 8, 8), CubeFace::HeadFront);
 
-		cv::Mat rightarmfront = CropAndScale(skin, cv::Rect(44, 20, 3, 12));
-		cv::Mat leftarmfront = CropAndScale(skin, cv::Rect(36, 52, 3, 12));
-		cv::Mat layerrightarmfront = CropAndScale(skin, cv::Rect(44, 36, 3, 12));
-		cv::Mat layerleftarmfront = CropAndScale(skin, cv::Rect(52, 52, 3, 12));
+		// Slim arms are three texels wide but are still warped against the
+		// four-texel arm quad, so their lighting has to be laid out over that quad.
+		const cv::Size slim_arm_quad(400, 1200);
+		cv::Mat rightarmfront = LitFace(skin, cv::Rect(44, 20, 3, 12), CubeFace::ArmRightFront, slim_arm_quad);
+		cv::Mat leftarmfront = LitFace(skin, cv::Rect(36, 52, 3, 12), CubeFace::ArmLeftFront, slim_arm_quad);
+		cv::Mat layerrightarmfront = LitFace(skin, cv::Rect(44, 36, 3, 12), CubeFace::ArmRightFront, slim_arm_quad);
+		cv::Mat layerleftarmfront = LitFace(skin, cv::Rect(52, 52, 3, 12), CubeFace::ArmLeftFront, slim_arm_quad);
 
-		cv::Mat rightarmside = CropAndScale(skin, cv::Rect(40, 20, 4, 12));
-		cv::Mat leftarmside = CropAndScale(skin, cv::Rect(32, 52, 4, 12));
-		cv::Mat layerrightarmside = CropAndScale(skin, cv::Rect(40, 36, 4, 12));
-		cv::Mat layerleftarmside = CropAndScale(skin, cv::Rect(48, 52, 4, 12));
+		cv::Mat rightarmside = LitFace(skin, cv::Rect(40, 20, 4, 12), CubeFace::ArmRightSide);
+		cv::Mat leftarmside = LitFace(skin, cv::Rect(32, 52, 4, 12), CubeFace::ArmLeftSide);
+		cv::Mat layerrightarmside = LitFace(skin, cv::Rect(40, 36, 4, 12), CubeFace::ArmRightSide);
+		cv::Mat layerleftarmside = LitFace(skin, cv::Rect(48, 52, 4, 12), CubeFace::ArmLeftSide);
 
-		cv::Mat bodyfront = CropAndScale(skin, cv::Rect(20, 20, 8, 12));
-		cv::Mat bodyside = CropAndScale(skin, cv::Rect(16, 20, 4, 12));
-		cv::Mat layerbodyfront = CropAndScale(skin, cv::Rect(20, 36, 8, 12));
-		cv::Mat layerbodyside = CropAndScale(skin, cv::Rect(16, 36, 4, 12));
+		cv::Mat bodyfront = LitFace(skin, cv::Rect(20, 20, 8, 12), CubeFace::BodyFront);
+		cv::Mat bodyside = LitFace(skin, cv::Rect(16, 20, 4, 12), CubeFace::BodySide);
+		cv::Mat layerbodyfront = LitFace(skin, cv::Rect(20, 36, 8, 12), CubeFace::BodyFront);
+		cv::Mat layerbodyside = LitFace(skin, cv::Rect(16, 36, 4, 12), CubeFace::BodySide);
 
-		cv::Mat rightlegside = CropAndScale(skin, cv::Rect(0, 20, 4, 12));
-		cv::Mat rightlegfront = CropAndScale(skin, cv::Rect(4, 20, 4, 12));
-		cv::Mat leftlegfront = CropAndScale(skin, cv::Rect(20, 52, 4, 12));
-		cv::Mat layerrightlegside = CropAndScale(skin, cv::Rect(0, 36, 4, 12));
-		cv::Mat layerrightlegfront = CropAndScale(skin, cv::Rect(4, 36, 4, 12));
-		cv::Mat layerleftlegfront = CropAndScale(skin, cv::Rect(4, 52, 4, 12));
+		cv::Mat rightlegside = LitFace(skin, cv::Rect(0, 20, 4, 12), CubeFace::LegRightSide);
+		cv::Mat rightlegfront = LitFace(skin, cv::Rect(4, 20, 4, 12), CubeFace::LegRightFront);
+		cv::Mat leftlegfront = LitFace(skin, cv::Rect(20, 52, 4, 12), CubeFace::LegLeftFront);
+		cv::Mat layerrightlegside = LitFace(skin, cv::Rect(0, 36, 4, 12), CubeFace::LegRightSide);
+		cv::Mat layerrightlegfront = LitFace(skin, cv::Rect(4, 36, 4, 12), CubeFace::LegRightFront);
+		cv::Mat layerleftlegfront = LitFace(skin, cv::Rect(4, 52, 4, 12), CubeFace::LegLeftFront);
 
 		RenderPerspectiveTransformation(168, 512, 376, 530, 345, 1200, 136, 1196, PartSize::Size4x12, rightarmfront);
 		RenderPerspectiveTransformation(98, 521, 168, 512, 136, 1196, 68, 1175, PartSize::Size4x12, rightarmside);
@@ -391,43 +397,41 @@ cv::Mat CreateRender(cv::Mat& skin, bool model) {
 				rightlegside, rightlegfront, leftlegfront, layerrightlegside, layerrightlegfront, layerleftlegfront
 			},
 			HEAD_SHADOW,
-			LEG_SHADOW,
-			LIGHTING
+			LEG_SHADOW
 		);
 	}
 	else
 	{
 		cv::Mat HEAD_SHADOW = LoadRequiredPng("Resources/HEAD_SHADOW.png");
 		cv::Mat LEG_SHADOW = LoadRequiredPng("Resources/LEG_SHADOW.png");
-		cv::Mat LIGHTING = LoadRequiredPng("Resources/LIGHTING_EXP.png");
 
-		cv::Mat headfront = CropAndScale(skin, cv::Rect(8, 8, 8, 8));
-		cv::Mat headside = CropAndScale(skin, cv::Rect(0, 8, 8, 8));
-		cv::Mat headbottom = CropAndScale(skin, cv::Rect(16, 0, 8, 8));
-		cv::Mat layerheadside = CropAndScale(skin, cv::Rect(32, 8, 8, 8));
-		cv::Mat layerheadfront = CropAndScale(skin, cv::Rect(40, 8, 8, 8));
+		cv::Mat headfront = LitFace(skin, cv::Rect(8, 8, 8, 8), CubeFace::HeadFront);
+		cv::Mat headside = LitFace(skin, cv::Rect(0, 8, 8, 8), CubeFace::HeadSide);
+		cv::Mat headbottom = LitFace(skin, cv::Rect(16, 0, 8, 8), CubeFace::HeadBottom);
+		cv::Mat layerheadside = LitFace(skin, cv::Rect(32, 8, 8, 8), CubeFace::HeadSide);
+		cv::Mat layerheadfront = LitFace(skin, cv::Rect(40, 8, 8, 8), CubeFace::HeadFront);
 
-		cv::Mat rightarmfront = CropAndScale(skin, cv::Rect(44, 20, 4, 12));
-		cv::Mat leftarmfront = CropAndScale(skin, cv::Rect(36, 52, 4, 12));
-		cv::Mat layerrightarmfront = CropAndScale(skin, cv::Rect(44, 36, 4, 12));
-		cv::Mat layerleftarmfront = CropAndScale(skin, cv::Rect(52, 52, 4, 12));
+		cv::Mat rightarmfront = LitFace(skin, cv::Rect(44, 20, 4, 12), CubeFace::ArmRightFront);
+		cv::Mat leftarmfront = LitFace(skin, cv::Rect(36, 52, 4, 12), CubeFace::ArmLeftFront);
+		cv::Mat layerrightarmfront = LitFace(skin, cv::Rect(44, 36, 4, 12), CubeFace::ArmRightFront);
+		cv::Mat layerleftarmfront = LitFace(skin, cv::Rect(52, 52, 4, 12), CubeFace::ArmLeftFront);
 
-		cv::Mat rightarmside = CropAndScale(skin, cv::Rect(40, 20, 4, 12));
-		cv::Mat leftarmside = CropAndScale(skin, cv::Rect(32, 52, 4, 12));
-		cv::Mat layerrightarmside = CropAndScale(skin, cv::Rect(40, 36, 4, 12));
-		cv::Mat layerleftarmside = CropAndScale(skin, cv::Rect(48, 52, 4, 12));
+		cv::Mat rightarmside = LitFace(skin, cv::Rect(40, 20, 4, 12), CubeFace::ArmRightSide);
+		cv::Mat leftarmside = LitFace(skin, cv::Rect(32, 52, 4, 12), CubeFace::ArmLeftSide);
+		cv::Mat layerrightarmside = LitFace(skin, cv::Rect(40, 36, 4, 12), CubeFace::ArmRightSide);
+		cv::Mat layerleftarmside = LitFace(skin, cv::Rect(48, 52, 4, 12), CubeFace::ArmLeftSide);
 
-		cv::Mat bodyfront = CropAndScale(skin, cv::Rect(20, 20, 8, 12));
-		cv::Mat bodyside = CropAndScale(skin, cv::Rect(16, 20, 4, 12));
-		cv::Mat layerbodyfront = CropAndScale(skin, cv::Rect(20, 36, 8, 12));
-		cv::Mat layerbodyside = CropAndScale(skin, cv::Rect(16, 36, 4, 12));
+		cv::Mat bodyfront = LitFace(skin, cv::Rect(20, 20, 8, 12), CubeFace::BodyFront);
+		cv::Mat bodyside = LitFace(skin, cv::Rect(16, 20, 4, 12), CubeFace::BodySide);
+		cv::Mat layerbodyfront = LitFace(skin, cv::Rect(20, 36, 8, 12), CubeFace::BodyFront);
+		cv::Mat layerbodyside = LitFace(skin, cv::Rect(16, 36, 4, 12), CubeFace::BodySide);
 
-		cv::Mat rightlegside = CropAndScale(skin, cv::Rect(0, 20, 4, 12));
-		cv::Mat rightlegfront = CropAndScale(skin, cv::Rect(4, 20, 4, 12));
-		cv::Mat leftlegfront = CropAndScale(skin, cv::Rect(20, 52, 4, 12));
-		cv::Mat layerrightlegside = CropAndScale(skin, cv::Rect(0, 36, 4, 12));
-		cv::Mat layerrightlegfront = CropAndScale(skin, cv::Rect(4, 36, 4, 12));
-		cv::Mat layerleftlegfront = CropAndScale(skin, cv::Rect(4, 52, 4, 12));
+		cv::Mat rightlegside = LitFace(skin, cv::Rect(0, 20, 4, 12), CubeFace::LegRightSide);
+		cv::Mat rightlegfront = LitFace(skin, cv::Rect(4, 20, 4, 12), CubeFace::LegRightFront);
+		cv::Mat leftlegfront = LitFace(skin, cv::Rect(20, 52, 4, 12), CubeFace::LegLeftFront);
+		cv::Mat layerrightlegside = LitFace(skin, cv::Rect(0, 36, 4, 12), CubeFace::LegRightSide);
+		cv::Mat layerrightlegfront = LitFace(skin, cv::Rect(4, 36, 4, 12), CubeFace::LegRightFront);
+		cv::Mat layerleftlegfront = LitFace(skin, cv::Rect(4, 52, 4, 12), CubeFace::LegLeftFront);
 
 		RenderPerspectiveTransformation(120, 512, 328, 526, 305, 1194, 94, 1194, PartSize::Size4x12, rightarmfront);
 		RenderPerspectiveTransformation(51, 522, 120, 512, 94, 1194, 26, 1172, PartSize::Size4x12, rightarmside);
@@ -471,8 +475,7 @@ cv::Mat CreateRender(cv::Mat& skin, bool model) {
 				rightlegside, rightlegfront, leftlegfront, layerrightlegside, layerrightlegfront, layerleftlegfront
 			},
 			HEAD_SHADOW,
-			LEG_SHADOW,
-			LIGHTING
+			LEG_SHADOW
 		);
 	}
 }

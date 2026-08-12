@@ -18,6 +18,4 @@ cv::Mat CropAndScale(cv::Mat& skin, cv::Rect rect);
 
 void OverlayImage(cv::Mat& background, const cv::Mat& foreground, cv::Point2i location);
 
-void AdjustBrightness(cv::Mat& surface, double factor);
-
 void Chara4Mask(cv::Mat& surface, cv::Mat& mask);

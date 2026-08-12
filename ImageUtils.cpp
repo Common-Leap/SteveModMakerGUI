@@ -1,5 +1,12 @@
 #include "ImageUtils.hpp"
 
+#include <algorithm>
+
+#if CV_VERSION_MAJOR >= 5
+// OpenCV 5 moved getPerspectiveTransform out of imgproc into the geometry module.
+#include <opencv2/geometry/2d.hpp>
+#endif
+
 // https://stackoverflow.com/questions/45751605/pixels-overlay-with-transparency
 void AlphaBlendColors(RGBA& BottomPixel, const RGBA& TopPixel) {
 	// Calculate new Alpha:
@@ -13,6 +20,7 @@ void AlphaBlendColors(RGBA& BottomPixel, const RGBA& TopPixel) {
 		BottomPixel.G = 0;
 		BottomPixel.B = 0;
 		BottomPixel.A = 0;
+		return;
 	}
 
 	// Going By Straight Alpha formula
@@ -27,29 +35,85 @@ void AlphaBlendColors(RGBA& BottomPixel, const RGBA& TopPixel) {
 }
 
 cv::Mat RenderPerspectiveTransformation(float topleftx, float toplefty, float toprightx, float toprighty, float bottomrightx, float bottomrighty, float bottomleftx, float bottomlefty, PartSize bodypart, cv::Mat& SOURCE_IMAGE) {
+	constexpr float kSupersample = 2.0f;
 	cv::Point2f imagePoints[4] = {
-		{topleftx , toplefty},
-		{toprightx, toprighty},
-		{bottomrightx, bottomrighty},
-		{bottomleftx, bottomlefty}
+		{topleftx * kSupersample, toplefty * kSupersample},
+		{toprightx * kSupersample, toprighty * kSupersample},
+		{bottomrightx * kSupersample, bottomrighty * kSupersample},
+		{bottomleftx * kSupersample, bottomlefty * kSupersample}
 	};
 	cv::Mat transform{};
 	switch (bodypart) {
 	case PartSize::Head:
-		transform = getPerspectiveTransform(imagePoints, HEAD_SIZE);
+		transform = cv::getPerspectiveTransform(imagePoints, HEAD_SIZE);
 		break;
 	case PartSize::Size4x12:
-		transform = getPerspectiveTransform(imagePoints, SIZE_4_12);
+		transform = cv::getPerspectiveTransform(imagePoints, SIZE_4_12);
 		break;
 	case PartSize::Size3x12:
-		transform = getPerspectiveTransform(imagePoints, SIZE_3_12);
+		transform = cv::getPerspectiveTransform(imagePoints, SIZE_3_12);
 		break;
 	case PartSize::Body:
-		transform = getPerspectiveTransform(imagePoints, BODY_SIZE);
+		transform = cv::getPerspectiveTransform(imagePoints, BODY_SIZE);
 		break;
 	}
 
-	cv::warpPerspective(SOURCE_IMAGE, SOURCE_IMAGE, transform, CANVAS_SIZE, cv::INTER_LANCZOS4 | cv::WARP_INVERSE_MAP);
+	// Warp premultiplied color so the transparent border contributes no black
+	// fringe to the antialiased silhouette. Convert back to straight alpha for
+	// the existing compositor after interpolation.
+	const float inv255 = 1.0f / 255.0f;
+	cv::Mat premultiplied(SOURCE_IMAGE.size(), CV_32FC4);
+	for (int y = 0; y < SOURCE_IMAGE.rows; ++y) {
+		const cv::Vec4b* source_row = SOURCE_IMAGE.ptr<cv::Vec4b>(y);
+		cv::Vec4f* premultiplied_row = premultiplied.ptr<cv::Vec4f>(y);
+		for (int x = 0; x < SOURCE_IMAGE.cols; ++x) {
+			const cv::Vec4b& source_pixel = source_row[x];
+			const float alpha = source_pixel[3] * inv255;
+			premultiplied_row[x] = cv::Vec4f(
+				source_pixel[0] * inv255 * alpha,
+				source_pixel[1] * inv255 * alpha,
+				source_pixel[2] * inv255 * alpha,
+				alpha
+			);
+		}
+	}
+
+	cv::Mat warped;
+	cv::warpPerspective(
+		premultiplied,
+		warped,
+		transform,
+		cv::Size(
+			static_cast<int>(CANVAS_SIZE.width * kSupersample),
+			static_cast<int>(CANVAS_SIZE.height * kSupersample)
+		),
+		cv::INTER_LINEAR | cv::WARP_INVERSE_MAP,
+		cv::BORDER_CONSTANT,
+		cv::Scalar(0, 0, 0, 0)
+	);
+
+	cv::Mat downsampled;
+	cv::resize(warped, downsampled, CANVAS_SIZE, 0, 0, cv::INTER_AREA);
+
+	SOURCE_IMAGE.create(CANVAS_SIZE, CV_8UC4);
+	for (int y = 0; y < SOURCE_IMAGE.rows; ++y) {
+		const cv::Vec4f* warped_row = downsampled.ptr<cv::Vec4f>(y);
+		cv::Vec4b* output_row = SOURCE_IMAGE.ptr<cv::Vec4b>(y);
+		for (int x = 0; x < SOURCE_IMAGE.cols; ++x) {
+			const cv::Vec4f& warped_pixel = warped_row[x];
+			const float alpha = std::clamp(warped_pixel[3], 0.0f, 1.0f);
+			if (alpha <= 1.0e-6f) {
+				output_row[x] = cv::Vec4b(0, 0, 0, 0);
+				continue;
+			}
+			output_row[x] = cv::Vec4b(
+				cv::saturate_cast<uint8_t>(warped_pixel[0] / alpha * 255.0f),
+				cv::saturate_cast<uint8_t>(warped_pixel[1] / alpha * 255.0f),
+				cv::saturate_cast<uint8_t>(warped_pixel[2] / alpha * 255.0f),
+				cv::saturate_cast<uint8_t>(alpha * 255.0f)
+			);
+		}
+	}
 
 	return SOURCE_IMAGE;
 }
@@ -86,18 +150,6 @@ void OverlayImage(cv::Mat& background, const cv::Mat& foreground, cv::Point2i lo
 			RGBA& backgroundPx = *(RGBA*)&background.data[y * background.step + x * 4];
 
 			AlphaBlendColors(backgroundPx, foregroundPx);
-		}
-	}
-}
-
-void AdjustBrightness(cv::Mat& surface, double factor)
-{
-	for (int y = 0; y < surface.rows; ++y) {
-		for (int x = 0; x < surface.cols; ++x) {
-			surface.data[y * surface.step + 4 * x] = surface.data[y * surface.step + 4 * x] * factor;
-			surface.data[y * surface.step + 4 * x + 1] = surface.data[y * surface.step + 4 * x + 1] * factor;
-			surface.data[y * surface.step + 4 * x + 2] = surface.data[y * surface.step + 4 * x + 2] * factor;
-			// surface.data[y * surface.step + 4 * x + 3] = surface.data[y * surface.step + 4 * x + 3] * factor;
 		}
 	}
 }

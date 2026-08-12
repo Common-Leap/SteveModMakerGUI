@@ -19,6 +19,10 @@ option(
 
 # Required dependencies for CLI generator
 find_package(OpenCV REQUIRED COMPONENTS imgproc core imgcodecs)
+if(OpenCV_VERSION_MAJOR GREATER_EQUAL 5)
+    # OpenCV 5 split getPerspectiveTransform out of imgproc into the geometry module.
+    find_package(OpenCV REQUIRED COMPONENTS geometry)
+endif()
 find_package(CURL REQUIRED)
 find_path(RAPIDJSON_INCLUDE_DIR rapidjson/document.h)
 if(NOT RAPIDJSON_INCLUDE_DIR)
@@ -58,6 +62,7 @@ set(CLI_SOURCES
     Main.cpp
     MinecraftSkinUtil.cpp
     Nutexb.cpp
+    RenderLighting.cpp
     UiCharaDbTemplate.cpp
 )
 
@@ -90,6 +95,7 @@ set(CLI_HEADERS
     MinecraftSkinUtil.hpp
     MsgNameTemplate.hpp
     Nutexb.hpp
+    RenderLighting.hpp
     tegra_swizzle.hpp
     UiCharaDbTemplate.hpp
 )
