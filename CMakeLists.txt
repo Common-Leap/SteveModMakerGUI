@@ -155,19 +155,19 @@ endif()
 if(WIN32)
     add_custom_command(
         TARGET SteveModMaker POST_BUILD
-        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-            $<TARGET_RUNTIME_DLLS:SteveModMaker>
-            $<TARGET_FILE_DIR:SteveModMaker>
-        COMMAND_EXPAND_LISTS
+        COMMAND "${CMAKE_COMMAND}"
+            -DTARGET_FILE_DIR=$<TARGET_FILE_DIR:SteveModMaker>
+            -DTARGET_RUNTIME_DLLS=$<JOIN:$<TARGET_RUNTIME_DLLS:SteveModMaker>,|>
+            -P "${CMAKE_SOURCE_DIR}/cmake/CopyTargetRuntimeDlls.cmake"
     )
 
     if(TARGET SteveModMakerGUI)
         add_custom_command(
             TARGET SteveModMakerGUI POST_BUILD
-            COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-                $<TARGET_RUNTIME_DLLS:SteveModMakerGUI>
-                $<TARGET_FILE_DIR:SteveModMakerGUI>
-            COMMAND_EXPAND_LISTS
+            COMMAND "${CMAKE_COMMAND}"
+                -DTARGET_FILE_DIR=$<TARGET_FILE_DIR:SteveModMakerGUI>
+                -DTARGET_RUNTIME_DLLS=$<JOIN:$<TARGET_RUNTIME_DLLS:SteveModMakerGUI>,|>
+                -P "${CMAKE_SOURCE_DIR}/cmake/CopyTargetRuntimeDlls.cmake"
         )
         add_custom_command(
             TARGET SteveModMakerGUI POST_BUILD
