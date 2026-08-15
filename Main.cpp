@@ -396,20 +396,20 @@ cv::Mat CreateCapeRenderLayer(const cv::Mat& cape) {
 	};
 
 	// Minecraft's cape is a 10x16x1 box attached to the upper back, with the
-	// decorated outside at atlas (12, 1), not the inside at (1, 1). Cape-enabled
-	// CSS artwork uses a rear three-quarter view so that outside can be shown on
-	// the character instead of being detached or incorrectly pasted over a chest.
+	// decorated outside at atlas (12, 1), not the inside at (1, 1). The top stays
+	// fixed behind the shoulders while the lower edge swings slightly left. The
+	// character is composited afterward, so the cape can never cover the chest.
 	const std::array<cv::Point2f, 4> outside_quad = {{
 		{215.0f, 520.0f}, {715.0f, 527.0f},
-		{660.0f, 1400.0f}, {160.0f, 1393.0f}
+		{620.0f, 1400.0f}, {120.0f, 1393.0f}
 	}};
 	const std::array<cv::Point2f, 4> side_quad = {{
 		{197.0f, 528.0f}, {215.0f, 520.0f},
-		{160.0f, 1393.0f}, {142.0f, 1401.0f}
+		{120.0f, 1393.0f}, {102.0f, 1401.0f}
 	}};
 	const std::array<cv::Point2f, 4> bottom_quad = {{
-		{142.0f, 1401.0f}, {642.0f, 1408.0f},
-		{660.0f, 1400.0f}, {160.0f, 1393.0f}
+		{102.0f, 1401.0f}, {602.0f, 1408.0f},
+		{620.0f, 1400.0f}, {120.0f, 1393.0f}
 	}};
 
 	cv::Mat layer(1864, 968, CV_8UC4, cv::Scalar(0, 0, 0, 0));
@@ -498,151 +498,10 @@ cv::Mat ComposeRenderedSurface(
 	return surface;
 }
 
-cv::Mat ComposeCapeBackSurface(RenderCompositionInputs parts, const cv::Mat& cape_layer) {
-	cv::Mat surface(1864, 968, CV_8UC4, cv::Scalar(0, 0, 0, 0));
-
-	// In the rear view the body and legs are behind the cape, while the head and
-	// arms remain in front of it. This is the depth order of the worn model, not
-	// a texture overlay on top of a completed character render.
-	OverlayImage(surface, parts.rightlegside, cv::Point(0, 0));
-	OverlayImage(surface, parts.rightlegfront, cv::Point(0, 0));
-	OverlayImage(surface, parts.leftlegfront, cv::Point(0, 0));
-	OverlayImage(surface, parts.layerrightlegside, cv::Point(0, 0));
-	OverlayImage(surface, parts.layerrightlegfront, cv::Point(0, 0));
-	OverlayImage(surface, parts.layerleftlegfront, cv::Point(0, 0));
-
-	OverlayImage(surface, parts.bodyside, cv::Point(0, 0));
-	OverlayImage(surface, parts.bodyfront, cv::Point(0, 0));
-	OverlayImage(surface, parts.layerbodyside, cv::Point(0, 0));
-	OverlayImage(surface, parts.layerbodyfront, cv::Point(0, 0));
-	OverlayImage(surface, cape_layer, cv::Point(0, 0));
-
-	OverlayImage(surface, parts.leftarmside, cv::Point(0, 0));
-	OverlayImage(surface, parts.rightarmside, cv::Point(0, 0));
-	OverlayImage(surface, parts.rightarmfront, cv::Point(0, 0));
-	OverlayImage(surface, parts.leftarmfront, cv::Point(0, 0));
-	OverlayImage(surface, parts.layerrightarmside, cv::Point(0, 0));
-	OverlayImage(surface, parts.layerleftarmside, cv::Point(0, 0));
-	OverlayImage(surface, parts.layerrightarmfront, cv::Point(0, 0));
-	OverlayImage(surface, parts.layerleftarmfront, cv::Point(0, 0));
-
-	OverlayImage(surface, parts.headbottom, cv::Point(0, 0));
-	OverlayImage(surface, parts.headfront, cv::Point(0, 0));
-	OverlayImage(surface, parts.headside, cv::Point(0, 0));
-	OverlayImage(surface, parts.layerheadfront, cv::Point(0, 0));
-	OverlayImage(surface, parts.layerheadside, cv::Point(0, 0));
-
-	cv::Mat alpha;
-	cv::extractChannel(surface, alpha, 3);
-	cv::Mat blurred_alpha;
-	cv::GaussianBlur(alpha, blurred_alpha, cv::Size(0, 0), 1.9, 1.9, cv::BORDER_CONSTANT);
-	cv::Mat alpha_float;
-	cv::Mat blurred_float;
-	alpha.convertTo(alpha_float, CV_32F, 1.0 / 255.0);
-	blurred_alpha.convertTo(blurred_float, CV_32F, 1.0 / 255.0);
-	cv::Mat union_alpha = alpha_float + blurred_float - alpha_float.mul(blurred_float);
-	union_alpha *= 255.0;
-	union_alpha.convertTo(alpha, CV_8U);
-	cv::insertChannel(alpha, surface, 3);
-	return surface;
-}
-
 } // namespace
 
 cv::Mat CreateRender(cv::Mat& skin, bool model, const cv::Mat& cape) {
 	const cv::Mat cape_layer = CreateCapeRenderLayer(cape);
-	if (!cape_layer.empty()) {
-		const int arm_width = model ? 3 : 4;
-		const cv::Size arm_quad = model ? cv::Size(400, 1200) : cv::Size();
-
-		cv::Mat headfront = LitFace(skin, cv::Rect(24, 8, 8, 8), CubeFace::HeadFront);
-		cv::Mat headside = LitFace(skin, cv::Rect(16, 8, 8, 8), CubeFace::HeadSide);
-		cv::Mat headbottom = LitFace(skin, cv::Rect(16, 0, 8, 8), CubeFace::HeadBottom);
-		cv::Mat layerheadfront = LitFace(skin, cv::Rect(56, 8, 8, 8), CubeFace::HeadFront);
-		cv::Mat layerheadside = LitFace(skin, cv::Rect(48, 8, 8, 8), CubeFace::HeadSide);
-
-		// A rear view reverses which arm appears on each side of the image. The
-		// back and left-face UVs below follow the classic/slim cube layouts.
-		cv::Mat rightarmfront = LitFace(
-			skin, cv::Rect(model ? 43 : 44, 52, arm_width, 12), CubeFace::ArmLeftFront, arm_quad);
-		cv::Mat rightarmside = LitFace(
-			skin, cv::Rect(model ? 39 : 40, 52, 4, 12), CubeFace::ArmLeftSide);
-		cv::Mat layerrightarmfront = LitFace(
-			skin, cv::Rect(model ? 59 : 60, 52, arm_width, 12), CubeFace::ArmLeftFront, arm_quad);
-		cv::Mat layerrightarmside = LitFace(
-			skin, cv::Rect(model ? 55 : 56, 52, 4, 12), CubeFace::ArmLeftSide);
-
-		cv::Mat leftarmfront = LitFace(
-			skin, cv::Rect(model ? 51 : 52, 20, arm_width, 12), CubeFace::ArmRightFront, arm_quad);
-		cv::Mat leftarmside = LitFace(
-			skin, cv::Rect(model ? 47 : 48, 20, 4, 12), CubeFace::ArmRightSide);
-		cv::Mat layerleftarmfront = LitFace(
-			skin, cv::Rect(model ? 51 : 52, 36, arm_width, 12), CubeFace::ArmRightFront, arm_quad);
-		cv::Mat layerleftarmside = LitFace(
-			skin, cv::Rect(model ? 47 : 48, 36, 4, 12), CubeFace::ArmRightSide);
-
-		cv::Mat bodyfront = LitFace(skin, cv::Rect(32, 20, 8, 12), CubeFace::BodyFront);
-		cv::Mat bodyside = LitFace(skin, cv::Rect(28, 20, 4, 12), CubeFace::BodySide);
-		cv::Mat layerbodyfront = LitFace(skin, cv::Rect(32, 36, 8, 12), CubeFace::BodyFront);
-		cv::Mat layerbodyside = LitFace(skin, cv::Rect(28, 36, 4, 12), CubeFace::BodySide);
-
-		cv::Mat rightlegfront = LitFace(skin, cv::Rect(28, 52, 4, 12), CubeFace::LegLeftFront);
-		cv::Mat rightlegside = LitFace(skin, cv::Rect(24, 52, 4, 12), CubeFace::LegRightSide);
-		cv::Mat layerrightlegfront = LitFace(skin, cv::Rect(12, 52, 4, 12), CubeFace::LegLeftFront);
-		cv::Mat layerrightlegside = LitFace(skin, cv::Rect(8, 52, 4, 12), CubeFace::LegRightSide);
-		cv::Mat leftlegfront = LitFace(skin, cv::Rect(12, 20, 4, 12), CubeFace::LegRightFront);
-		cv::Mat layerleftlegfront = LitFace(skin, cv::Rect(12, 36, 4, 12), CubeFace::LegRightFront);
-
-		if (model) {
-			RenderPerspectiveTransformation(168, 512, 376, 530, 345, 1200, 136, 1196, PartSize::Size4x12, rightarmfront);
-			RenderPerspectiveTransformation(98, 521, 168, 512, 136, 1196, 68, 1175, PartSize::Size4x12, rightarmside);
-			RenderPerspectiveTransformation(725, 532, 915, 525, 936, 1160, 749, 1177, PartSize::Size4x12, leftarmfront);
-			RenderPerspectiveTransformation(627, 544, 725, 532, 749, 1177, 651, 1143, PartSize::Size4x12, leftarmside);
-			RenderPerspectiveTransformation(158, 498, 339, 511, 310, 1215, 128, 1217, PartSize::Size4x12, layerrightarmfront);
-			RenderPerspectiveTransformation(75, 509, 158, 498, 128, 1217, 49, 1183, PartSize::Size4x12, layerrightarmside);
-			RenderPerspectiveTransformation(717, 521, 878, 514, 899, 1175, 742, 1196, PartSize::Size4x12, layerleftarmfront);
-			RenderPerspectiveTransformation(611, 570, 717, 521, 742, 1196, 630, 1155, PartSize::Size4x12, layerleftarmside);
-		} else {
-			RenderPerspectiveTransformation(120, 512, 328, 526, 305, 1194, 94, 1194, PartSize::Size4x12, rightarmfront);
-			RenderPerspectiveTransformation(51, 522, 120, 512, 94, 1194, 26, 1172, PartSize::Size4x12, rightarmside);
-			RenderPerspectiveTransformation(716, 532, 902, 527, 924, 1162, 740, 1170, PartSize::Size4x12, leftarmfront);
-			RenderPerspectiveTransformation(627, 534, 715, 500, 740, 1171, 651, 1143, PartSize::Size4x12, leftarmside);
-			RenderPerspectiveTransformation(119, 496, 346, 513, 325, 1211, 92, 1213, PartSize::Size4x12, layerrightarmfront);
-			RenderPerspectiveTransformation(34, 506, 119, 496, 92, 1213, 9, 1183, PartSize::Size4x12, layerrightarmside);
-			RenderPerspectiveTransformation(709, 523, 919, 510, 944, 1163, 735, 1187, PartSize::Size4x12, layerleftarmfront);
-			RenderPerspectiveTransformation(611, 563, 709, 523, 735, 1187, 635, 1165, PartSize::Size4x12, layerleftarmside);
-		}
-
-		RenderPerspectiveTransformation(366, 59, 776, 86, 774, 529, 368, 521, PartSize::Head, headfront);
-		RenderPerspectiveTransformation(210, 119, 366, 59, 368, 521, 212, 537, PartSize::Head, headside);
-		RenderPerspectiveTransformation(366, 520, 774, 529, 591, 537, 212, 537, PartSize::Head, headbottom);
-		RenderPerspectiveTransformation(350, 23, 813, 56, 813, 548, 352, 547, PartSize::Head, layerheadfront);
-		RenderPerspectiveTransformation(176, 94, 350, 23, 352, 547, 178, 564, PartSize::Head, layerheadside);
-
-		RenderPerspectiveTransformation(327, 1194, 528, 1184, 519, 1825, 320, 1846, PartSize::Size4x12, rightlegfront);
-		RenderPerspectiveTransformation(249, 1161, 327, 1194, 320, 1846, 244, 1793, PartSize::Size4x12, rightlegside);
-		RenderPerspectiveTransformation(528, 1184, 722, 1175, 720, 1801, 529, 1824, PartSize::Size4x12, leftlegfront);
-		RenderPerspectiveTransformation(319, 1192, 542, 1173, 524, 1847, 311, 1864, PartSize::Size4x12, layerrightlegfront);
-		RenderPerspectiveTransformation(239, 1183, 319, 1192, 311, 1864, 234, 1799, PartSize::Size4x12, layerrightlegside);
-		RenderPerspectiveTransformation(514, 1175, 741, 1157, 740, 1820, 524, 1847, PartSize::Size4x12, layerleftlegfront);
-
-		RenderPerspectiveTransformation(325, 526, 725, 532, 722, 1175, 326, 1194, PartSize::Body, bodyfront);
-		RenderPerspectiveTransformation(252, 534, 325, 526, 326, 1196, 249, 1167, PartSize::Size4x12, bodyside);
-		RenderPerspectiveTransformation(318, 504, 743, 512, 742, 1175, 323, 1196, PartSize::Body, layerbodyfront);
-		RenderPerspectiveTransformation(241, 515, 318, 504, 323, 1196, 244, 1166, PartSize::Size4x12, layerbodyside);
-
-		return ComposeCapeBackSurface(
-			{
-				headfront, headside, headbottom, layerheadside, layerheadfront,
-				rightarmfront, leftarmfront, layerrightarmfront, layerleftarmfront,
-				rightarmside, leftarmside, layerrightarmside, layerleftarmside,
-				bodyfront, bodyside, layerbodyfront, layerbodyside,
-				rightlegside, rightlegfront, leftlegfront,
-				layerrightlegside, layerrightlegfront, layerleftlegfront
-			},
-			cape_layer
-		);
-	}
 
 	if (model)
 	{
