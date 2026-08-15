@@ -60,6 +60,9 @@ cv::Mat RenderPerspectiveTransformation(float topleftx, float toplefty, float to
 	case PartSize::Body:
 		transform = cv::getPerspectiveTransform(imagePoints, BODY_SIZE);
 		break;
+	case PartSize::Cape:
+		transform = cv::getPerspectiveTransform(imagePoints, CAPE_SIZE);
+		break;
 	default:
 		return cv::Mat();
 	}
