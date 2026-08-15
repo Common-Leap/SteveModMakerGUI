@@ -397,19 +397,20 @@ cv::Mat CreateCapeRenderLayer(const cv::Mat& cape) {
 
 	// Minecraft's cape is a 10x16x1 box attached to the upper back, with the
 	// decorated outside at atlas (12, 1), not the inside at (1, 1). The top stays
-	// fixed behind the shoulders while the lower edge swings slightly left. The
-	// character is composited afterward, so the cape can never cover the chest.
+	// fixed behind the shoulders while the lower edge swings only slightly left.
+	// The side and bottom quads expose the box's depth, and the character is
+	// composited afterward, so the cape can never cover the chest.
 	const std::array<cv::Point2f, 4> outside_quad = {{
-		{215.0f, 520.0f}, {715.0f, 527.0f},
-		{620.0f, 1400.0f}, {120.0f, 1393.0f}
+		{250.0f, 520.0f}, {750.0f, 527.0f},
+		{730.0f, 1450.0f}, {230.0f, 1443.0f}
 	}};
 	const std::array<cv::Point2f, 4> side_quad = {{
-		{197.0f, 528.0f}, {215.0f, 520.0f},
-		{120.0f, 1393.0f}, {102.0f, 1401.0f}
+		{220.0f, 528.0f}, {250.0f, 520.0f},
+		{230.0f, 1443.0f}, {200.0f, 1451.0f}
 	}};
 	const std::array<cv::Point2f, 4> bottom_quad = {{
-		{102.0f, 1401.0f}, {602.0f, 1408.0f},
-		{620.0f, 1400.0f}, {120.0f, 1393.0f}
+		{200.0f, 1451.0f}, {700.0f, 1458.0f},
+		{730.0f, 1450.0f}, {230.0f, 1443.0f}
 	}};
 
 	cv::Mat layer(1864, 968, CV_8UC4, cv::Scalar(0, 0, 0, 0));
