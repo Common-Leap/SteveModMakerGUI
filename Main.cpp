@@ -15,6 +15,7 @@
 #include "Nutexb.hpp"
 #include "BNTX.hpp"
 #include "CapeCatalog.hpp"
+#include "CapeLayout.hpp"
 #include "Constants.hpp"
 #include "EmbeddedAssets.hpp"
 #include "ImageUtils.hpp"
@@ -369,7 +370,8 @@ struct RenderCompositionInputs {
 };
 
 cv::Mat CreateCapeRenderLayer(const cv::Mat& cape) {
-	if (cape.empty() || cape.type() != CV_8UC4 || cape.cols < 22 || cape.rows < 17) {
+	if (cape.empty() || cape.type() != CV_8UC4 ||
+		!CapeLayout::HasRequiredFaceBounds(cape.cols, cape.rows)) {
 		return cv::Mat();
 	}
 
@@ -396,7 +398,8 @@ cv::Mat CreateCapeRenderLayer(const cv::Mat& cape) {
 	};
 
 	// Minecraft's cape is a 10x16x1 box attached to the upper back, with the
-	// decorated outside at atlas (12, 1), not the inside at (1, 1). The top stays
+	// decorated outside at the shared atlas face (12, 1), not the inside at
+	// (1, 1). The top stays
 	// fixed behind the shoulders while the lower edge swings only slightly left.
 	// The side and bottom quads expose the box's depth, and the character is
 	// composited afterward, so the cape can never cover the chest.
@@ -414,9 +417,21 @@ cv::Mat CreateCapeRenderLayer(const cv::Mat& cape) {
 	}};
 
 	cv::Mat layer(1864, 968, CV_8UC4, cv::Scalar(0, 0, 0, 0));
-	cv::Mat side = warp_face(cv::Rect(0, 1, 1, 16), side_quad, 0.72);
-	cv::Mat outside = warp_face(cv::Rect(12, 1, 10, 16), outside_quad, 0.90);
-	cv::Mat bottom = warp_face(cv::Rect(11, 0, 10, 1), bottom_quad, 0.60);
+	cv::Mat side = warp_face(
+		cv::Rect(CapeLayout::kSideX, CapeLayout::kSideY, 1, CapeLayout::kFaceHeight),
+		side_quad,
+		0.72
+	);
+	cv::Mat outside = warp_face(
+		cv::Rect(CapeLayout::kOutsideX, CapeLayout::kOutsideY, CapeLayout::kFaceWidth, CapeLayout::kFaceHeight),
+		outside_quad,
+		0.90
+	);
+	cv::Mat bottom = warp_face(
+		cv::Rect(CapeLayout::kBottomX, CapeLayout::kBottomY, CapeLayout::kFaceWidth, 1),
+		bottom_quad,
+		0.60
+	);
 	OverlayImage(layer, side, cv::Point(0, 0));
 	OverlayImage(layer, outside, cv::Point(0, 0));
 	OverlayImage(layer, bottom, cv::Point(0, 0));

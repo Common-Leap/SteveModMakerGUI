@@ -1,6 +1,7 @@
 #include "GuiWindow.hpp"
 
 #include "CapeCatalog.hpp"
+#include "CapeLayout.hpp"
 
 #include <QComboBox>
 #include <QCheckBox>
@@ -36,16 +37,25 @@
 namespace {
 QIcon OfficialCapeIcon(const QString& cape_id) {
 	const QImage atlas(QStringLiteral(":/capes/%1.png").arg(cape_id));
-	if (atlas.isNull() || atlas.width() < 11 || atlas.height() < 17) {
+	if (atlas.isNull() || !CapeLayout::HasRequiredFaceBounds(atlas.width(), atlas.height())) {
 		return QIcon();
 	}
 
-	// Minecraft's outward-facing cape design is the 10x16 region at (1, 1).
-	// Keep nearest-neighbor scaling so the selector shows the actual pixel art.
-	const QImage back = atlas.copy(1, 1, 10, 16).scaled(
-		20, 32, Qt::KeepAspectRatio, Qt::FastTransformation
+	// The selector shows the decorated outside face used by the generated cape
+	// model, not the inside face at (1, 1). Keep nearest-neighbor scaling so the
+	// selector shows the actual pixel art.
+	const QImage outside = atlas.copy(
+		CapeLayout::kOutsideX,
+		CapeLayout::kOutsideY,
+		CapeLayout::kFaceWidth,
+		CapeLayout::kFaceHeight
+	).scaled(
+		20,
+		32,
+		Qt::KeepAspectRatio,
+		Qt::FastTransformation
 	);
-	return QIcon(QPixmap::fromImage(back));
+	return QIcon(QPixmap::fromImage(outside));
 }
 
 QString SanitizeFolderName(QString folder_name) {

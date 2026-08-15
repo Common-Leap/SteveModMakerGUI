@@ -6,6 +6,7 @@
 
 #include "Base64.hpp"
 #include "CapeCatalog.hpp"
+#include "CapeLayout.hpp"
 #include "EmbeddedAssets.hpp"
 #include "ImageUtils.hpp"
 #include "MinecraftSkinUtil.hpp"
@@ -75,16 +76,24 @@ cv::Mat NormalizeCapeForTool(const cv::Mat& raw_cape, const std::string& source_
 		return cv::Mat();
 	}
 
-	// Minecraft cape files use a 64x32 atlas. The visible outside is the
-	// 10x16-pixel north face at atlas coordinates x=1..10, y=1..16.
-	if (cape_bgra.cols == 64 && cape_bgra.rows == 32) {
+	// Minecraft cape files use a 64x32 atlas. The decorated outside is the
+	// 10x16-pixel face at atlas coordinates x=12..21, y=1..16. The adjacent
+	// x=1..10 face is the inside of the worn cape.
+	if (cape_bgra.cols == CapeLayout::kAtlasWidth && cape_bgra.rows == CapeLayout::kAtlasHeight) {
 		return cape_bgra;
 	}
 
 	// Preserve pixel-art edges when accepting an integer-scaled cape atlas.
-	if (cape_bgra.cols == cape_bgra.rows * 2 && cape_bgra.cols % 64 == 0) {
+	if (cape_bgra.cols == cape_bgra.rows * 2 && cape_bgra.cols % CapeLayout::kAtlasWidth == 0) {
 		cv::Mat resized;
-		cv::resize(cape_bgra, resized, cv::Size(64, 32), 0, 0, cv::INTER_NEAREST);
+		cv::resize(
+			cape_bgra,
+			resized,
+			cv::Size(CapeLayout::kAtlasWidth, CapeLayout::kAtlasHeight),
+			0,
+			0,
+			cv::INTER_NEAREST
+		);
 		return resized;
 	}
 

@@ -104,6 +104,7 @@ set(CLI_HEADERS
     Base64.hpp
     BNTX.hpp
     CapeCatalog.hpp
+    CapeLayout.hpp
     Constants.hpp
     EmbeddedAssets.hpp
     ImageUtils.hpp
