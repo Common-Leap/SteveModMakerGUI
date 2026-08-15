@@ -8,6 +8,8 @@
 
 namespace {
 
+constexpr uint32_t kBlockLinearAlignment = 0x1000;
+
 void InitializeFooterMagic(NUTEXBFooter& footer) {
 	std::memcpy(footer.XNT, " XNT", 4);
 	std::memcpy(footer.XET, " XET", 4);
@@ -53,6 +55,16 @@ bool NUTEXB::ReplaceTextureFromMat(cv::Mat& mat) {
 		return false;
 	}
 
+	const bool rgba_format = footer.format == NUTEXBFormat::R8G8B8A8_UNORM
+		|| footer.format == NUTEXBFormat::R8G8B8A8_SRGB;
+	const bool bgra_format = footer.format == NUTEXBFormat::B8G8R8A8_UNORM
+		|| footer.format == NUTEXBFormat::B8G8R8A8_SRGB;
+	if (!rgba_format && !bgra_format) {
+		// Raw four-channel pixels cannot replace a block-compressed texture while
+		// retaining its footer. Callers should generate a new uncompressed NUTEXB.
+		return false;
+	}
+
 	const uint32_t width = footer.width;
 	const uint32_t height = footer.height;
 	const uint32_t mip_count = footer.mip_count > 0 ? footer.mip_count : 1;
@@ -62,9 +74,12 @@ bool NUTEXB::ReplaceTextureFromMat(cv::Mat& mat) {
 	}
 
 	// OpenCV stores 4-channel images as BGRA. Convert to the format expected by the NUTEXB footer.
-	cv::Mat source = mat;
-	if (footer.format == NUTEXBFormat::R8G8B8A8_UNORM || footer.format == NUTEXBFormat::R8G8B8A8_SRGB) {
+	cv::Mat source;
+	if (rgba_format) {
 		cv::cvtColor(mat, source, cv::COLOR_BGRA2RGBA);
+	}
+	else {
+		source = mat;
 	}
 
 	cv::Mat base_level;
@@ -114,7 +129,10 @@ bool NUTEXB::ReplaceTextureFromMat(cv::Mat& mat) {
 			4
 		);
 
-		footer.mip_sizes[mip] = (uint32_t)swizzled_size;
+		// NUTEXB stores the linear byte count for each mip here. The tiled
+		// payload is larger because each block-linear GOB is padded, but writing
+		// that padded count makes the runtime advance to the wrong mip offsets.
+		footer.mip_sizes[mip] = (uint32_t)input_size;
 		new_image_data.insert(new_image_data.end(), swizzled.begin(), swizzled.end());
 	}
 
@@ -124,6 +142,7 @@ bool NUTEXB::ReplaceTextureFromMat(cv::Mat& mat) {
 
 	IMAGE_DATA = std::move(new_image_data);
 	footer.size = (uint32_t)IMAGE_DATA.size();
+	footer.alignment = kBlockLinearAlignment;
 	return true;
 }
 
@@ -150,7 +169,10 @@ NUTEXB::NUTEXB(const std::string& internal_name, cv::Mat& mat, NUTEXBFormat form
 	footer.PADDING = 0;
 	footer.unk2 = 4;
 	footer.mip_count = 7;
-	footer.alignment = 0;
+	// 0x1000 identifies a Tegra block-linear surface. A zero value describes
+	// an unswizzled linear payload, which makes the game interpret the GOB-
+	// tiled bytes as ordinary scanlines.
+	footer.alignment = kBlockLinearAlignment;
 	footer.array_count = 1;
 	footer.major_version = 1;
 	footer.minor_version = 2;

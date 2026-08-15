@@ -1,12 +1,18 @@
-# HEY! Don't ever use this to publish a skin on gamebanna unless you add something this tool can't do! People have to spend time reviewing what you post, and anybody could come and use this tool!
+# HEY! Don't ever use this to publish a skin on gamebanna unless you add something this tool can't do! People have to spend time looking at what you post, and anybody could come and use this tool!
 
 Q: Why did you make this when we have the smash-minecraft-skins plugin, and people could use this to spam?
 
-A: I didn't like have my whole group of 4 people having to wait for 15 seconds every time somebody wanted to play steve, and I figured other people didn't either.
+A: I didn't like have my whole group of 4 people having to wait for 15 seconds every time somebody wanted to play steve, and I figured other people didn't either. Also, this now has cape support, and it shows textures and names on the CSS.
+
+# AI DISCLOSURE
+
+I assume we are all responsible adults capable of making our own moral descisions, and I don't need to convince you why, but the code in this project is partial generated using LLMs. This information is provided to you for assistance in your judgement and discernment in the use of this tool, and for the sake of transparency
 
 # SteveModMaker
 
-Generate Steve/Alex mods for Super Smash Bros. Ultimate from Minecraft skins.
+Current release: `v1.2.0`
+
+Generate Steve mods for Super Smash Bros. Ultimate from Minecraft skins.
 
 This project provides two executables:
 
@@ -19,7 +25,7 @@ Windows baseline target: Windows 11 x64.
 
 Download prebuilt files from Releases:
 
-- https://github.com/Common-Leap/SteveModMakerLinux/releases
+- https://github.com/Common-Leap/SteveModMakerGUI/releases
 
 ### Windows 11 (Prebuilt)
 
@@ -27,6 +33,9 @@ Download prebuilt files from Releases:
 2. Extract it to a normal folder (your downloads folder or something).
 3. Run `SteveModMakerGUI.exe`.
 4. Keep all `.exe` and `.dll` files together in the same folder.
+
+Enable **Add Minecraft Cape** to choose any bundled official cape, use the cape
+equipped by a Minecraft username, or browse for a custom 64x32 cape PNG.
 
 CLI usage example:
 
@@ -55,8 +64,8 @@ CLI usage example:
 ## CLI Usage
 
 ```text
-SteveModMaker <minecraft_username> [--patch-subdir <folder_name>] [--special-message <boxing_ring_message>] <slot_number> [arm_type]
-SteveModMaker --skin-file <skin_png_path> [--player-name <minecraft_username>] [--patch-subdir <folder_name>] [--special-message <boxing_ring_message>] <slot_number> [arm_type]
+SteveModMaker <minecraft_username> [options] <slot_number> [arm_type]
+SteveModMaker --skin-file <skin_png_path> [options] <slot_number> [arm_type]
 ```
 
 - `slot_number`: `1` through `8`
@@ -65,6 +74,10 @@ SteveModMaker --skin-file <skin_png_path> [--player-name <minecraft_username>] [
 - `--player-name` / `-n`: output/display name override (valid with `--skin-file`)
 - `--patch-subdir` / `-p`: write output under `./<folder_name>/...` instead of `./...`
 - `--special-message` / `-m` (optional): Boxing Ring message text; if omitted, username is used
+- `--cape`: add the username's current Minecraft cape using a separate cape-enabled model template
+- `--cape-official <id>`: add one of the bundled official Minecraft capes
+- `--cape-file <cape_png_path>`: add a local Minecraft cape atlas; accepts the standard 64x32 PNG or an integer-scaled equivalent
+- `--list-capes`: print the IDs accepted by `--cape-official`
 - `player_name` and `special_message` must use printable ASCII only
 - Option flags must appear before `<slot_number>`. After `<slot_number>`, only optional `[arm_type]` is accepted.
 
@@ -79,7 +92,14 @@ Examples:
 ./SteveModMaker --skin-file ./my_skin.png --player-name Steve 1
 ./SteveModMaker --skin-file ./my_skin.png --player-name Steve --patch-subdir "(Skin) Steve - slot1" --special-message "The Builder" 1
 ./SteveModMaker Steve -m "The Builder" 1
+./SteveModMaker Steve --cape 1
+./SteveModMaker --skin-file ./my_skin.png --player-name Steve --cape-official migrator 1
+./SteveModMaker --skin-file ./my_skin.png --player-name Steve --cape-file ./my_cape.png 1
 ```
+
+Minecraft capes use a 64x32 texture atlas. The visible cape occupies the standard 10x16-pixel atlas region, and the generated model keeps that exact width-to-height proportion. Cape mode can use the username's equipped cape, any bundled official texture, or a custom PNG. It writes the cape model, swappable `cape.nutexb` texture, swing-motion files, and the ARCropolis configuration required to register the added files. The selected cape is included in the generated Character Select Screen artwork. Steve's Elytra uses the same atlas during recovery; the back cape is hidden while the Elytra is attached and returns when recovery ends. Without a cape option, the original output layout and model template are unchanged.
+
+Model-bound skin, cape, and Elytra textures receive the same anti-glare color treatment before sRGB encoding. Original colors remain unchanged in the cape selector and Character Select Screen artwork.
 
 Output is written under `./...` relative to the current working directory.
 With `--patch-subdir`, output is written under `./<folder_name>/...`.
@@ -120,8 +140,8 @@ sudo pacman -S --needed \
 ### 2) Build
 
 ```bash
-git clone https://github.com/Common-Leap/SteveModMakerLinux.git
-cd SteveModMakerLinux
+git clone https://github.com/Common-Leap/SteveModMakerGUI.git
+cd SteveModMakerGUI
 cmake --preset release
 cmake --build --preset release
 ```
@@ -166,8 +186,8 @@ Use `x64 Native Tools Command Prompt for VS 2022` or `Developer PowerShell for V
 
 ```powershell
 git clone https://github.com/microsoft/vcpkg C:\vcpkg
-git clone https://github.com/Common-Leap/SteveModMakerLinux.git C:\src\SteveModMakerLinux
-cd C:\src\SteveModMakerLinux
+git clone https://github.com/Common-Leap/SteveModMakerGUI.git C:\src\SteveModMakerGUI
+cd C:\src\SteveModMakerGUI
 ```
 
 ### 4) Bootstrap vcpkg and set env vars (first time only)
@@ -221,7 +241,7 @@ cmake --build --preset release-msvc --parallel
 ### 7) Fast repeat builds
 
 ```powershell
-cd C:\src\SteveModMakerLinux
+cd C:\src\SteveModMakerGUI
 cmake --build --preset release-msvc-unified --parallel
 cmake --build --preset debug-msvc-unified --parallel
 ```
@@ -324,7 +344,7 @@ test -x "$HOME/vcpkg/vcpkg" && echo "vcpkg OK"
 ### 3) Build everything
 
 ```bash
-cd SteveModMakerLinux
+cd SteveModMakerGUI
 ./scripts/build-linux-and-windows.sh --vcpkg-root "$HOME/vcpkg"
 ```
 

@@ -162,12 +162,19 @@ mkdir -p "${APPDIR}/usr/share/icons/hicolor/scalable/apps"
 cp "${PROJECT_ROOT}/packaging/SteveModMaker.desktop" "${APPDIR}/usr/share/applications/stevemodmaker.desktop"
 cp "${PROJECT_ROOT}/packaging/stevemodmaker.svg" "${APPDIR}/usr/share/icons/hicolor/scalable/apps/stevemodmaker.svg"
 
-if git -C "${PROJECT_ROOT}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-	VERSION="$(git -C "${PROJECT_ROOT}" describe --tags --always --dirty 2>/dev/null || git -C "${PROJECT_ROOT}" rev-parse --short HEAD)"
+if [[ -n "${STEVE_MOD_MAKER_VERSION:-}" ]]; then
+	RELEASE_VERSION="${STEVE_MOD_MAKER_VERSION}"
+elif [[ -s "${PROJECT_ROOT}/VERSION" ]]; then
+	RELEASE_VERSION="$(tr -d '[:space:]' < "${PROJECT_ROOT}/VERSION")"
+elif git -C "${PROJECT_ROOT}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+	RELEASE_VERSION="$(git -C "${PROJECT_ROOT}" describe --tags --always --dirty 2>/dev/null || git -C "${PROJECT_ROOT}" rev-parse --short HEAD)"
 else
-	VERSION="dev"
+	RELEASE_VERSION="dev"
 fi
-export VERSION
+if [[ "${RELEASE_VERSION}" != v* ]]; then
+	RELEASE_VERSION="v${RELEASE_VERSION}"
+fi
+export VERSION="${RELEASE_VERSION}"
 
 echo "Packaging AppImage..."
 export APPIMAGE_EXTRACT_AND_RUN=1
@@ -194,7 +201,7 @@ elif ldd "${BUILD_DIR}/SteveModMakerGUI" | grep -q "libQt5"; then
 	fi
 fi
 
-SAFE_VERSION="$(echo "${VERSION}" | tr '/ ' '__')"
+SAFE_VERSION="$(echo "${RELEASE_VERSION}" | tr '/ ' '__')"
 APPIMAGE_OUTPUT="${BUILD_DIR}/SteveModMaker-${SAFE_VERSION}-${ARCH}.AppImage"
 
 pushd "${BUILD_DIR}" >/dev/null

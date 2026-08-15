@@ -19,6 +19,16 @@ cv::Mat DownloadSkin(const std::string& username);
 
 cv::Mat LoadSkinFromFile(const std::string& file_path);
 
+// Loads the player's current Minecraft cape texture from Mojang's profile.
+cv::Mat DownloadCape(const std::string& username);
+
+// Loads a canonical Minecraft cape texture from a local PNG file.
+cv::Mat LoadCapeFromFile(const std::string& file_path);
+
+// Loads one of the official cape atlases embedded in the application.
+cv::Mat LoadOfficialCape(const std::string& cape_id);
+
 cv::Mat ConvertToModernSkin(cv::Mat& skin, bool model);
 
-void ColorCorrectSkin(cv::Mat& skin);
+// Applies the established Smash model-texture treatment while preserving alpha.
+void ColorCorrectModelTexture(cv::Mat& texture);

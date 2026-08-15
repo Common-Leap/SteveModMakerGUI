@@ -1,9 +1,22 @@
 cmake_minimum_required(VERSION 3.21)
-project(SteveModMaker LANGUAGES CXX)
+
+set(STEVE_MOD_MAKER_VERSION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/VERSION")
+if(NOT EXISTS "${STEVE_MOD_MAKER_VERSION_FILE}")
+    message(FATAL_ERROR "Missing project version file: ${STEVE_MOD_MAKER_VERSION_FILE}")
+endif()
+file(STRINGS "${STEVE_MOD_MAKER_VERSION_FILE}" STEVE_MOD_MAKER_VERSION LIMIT_COUNT 1)
+string(STRIP "${STEVE_MOD_MAKER_VERSION}" STEVE_MOD_MAKER_VERSION)
+string(REGEX REPLACE "^v" "" STEVE_MOD_MAKER_VERSION "${STEVE_MOD_MAKER_VERSION}")
+if(NOT STEVE_MOD_MAKER_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
+    message(FATAL_ERROR "VERSION must contain a semantic version such as 1.2.0")
+endif()
+
+project(SteveModMaker VERSION "${STEVE_MOD_MAKER_VERSION}" LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_AUTORCC ON)
 
 option(STEVE_MOD_MAKER_BUILD_GUI "Build the Qt desktop GUI (SteveModMakerGUI)." ON)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64)$")
@@ -57,6 +70,7 @@ include_directories(${RAPIDJSON_INCLUDE_DIR})
 set(CLI_SOURCES
     Base64.cpp
     BNTX.cpp
+    CapeCatalog.cpp
     EmbeddedAssets.cpp
     ImageUtils.cpp
     Main.cpp
@@ -89,6 +103,7 @@ endif()
 set(CLI_HEADERS
     Base64.hpp
     BNTX.hpp
+    CapeCatalog.hpp
     Constants.hpp
     EmbeddedAssets.hpp
     ImageUtils.hpp
@@ -135,6 +150,9 @@ if(STEVE_MOD_MAKER_BUILD_GUI)
     if(STEVE_MOD_MAKER_GUI_AVAILABLE)
         add_executable(
             SteveModMakerGUI
+            CapeCatalog.cpp
+            CapeCatalog.hpp
+            CapeResources.qrc
             GuiMain.cpp
             GuiWindow.cpp
             GuiWindow.hpp

@@ -11,6 +11,7 @@
 
 #include "Nutexb.hpp"
 #include "BNTX.hpp"
+#include "CapeCatalog.hpp"
 #include "Constants.hpp"
 #include "EmbeddedAssets.hpp"
 #include "ImageUtils.hpp"
@@ -29,9 +30,50 @@ cv::Mat LoadRequiredPng(const std::string& key) {
 	return img;
 }
 
-bool WriteRequiredTemplate(const std::string& arm_type, const std::string& file_name, const std::filesystem::path& output_path) {
-	const std::string template_dir = (arm_type == "small") ? "Templates/small_arms/" : "Templates/big_arms/";
+bool WriteRequiredTemplate(
+	const std::string& arm_type,
+	bool cape_enabled,
+	const std::string& file_name,
+	const std::filesystem::path& output_path
+) {
+	const std::string arm_directory = (arm_type == "small") ? "small_arms" : "big_arms";
+	const std::string template_dir = "Templates/" + arm_directory + (cape_enabled ? "_cape/" : "/");
 	return EmbeddedAssets::WriteFile(template_dir + file_name, output_path);
+}
+
+bool WriteCapeArcropolisConfig(
+	const std::string& slot_code,
+	const std::filesystem::path& output_root
+) {
+	const std::filesystem::path output_path = output_root / "config.json";
+	std::filesystem::create_directories(output_path.parent_path());
+	std::ofstream out(output_path, std::ios::binary);
+	if (!out) {
+		return false;
+	}
+
+	const std::string costume = "c" + slot_code;
+	std::vector<std::string> registered_files = {
+		"fighter/pickel/model/body/" + costume + "/cape.nutexb",
+		"fighter/pickel/motion/body/" + costume + "/swing.prc"
+	};
+
+	out
+		<< "{\n"
+		<< "  \"new-dir-files\": {\n"
+		<< "    \"fighter/pickel/" << costume << "\": [\n";
+	for (std::size_t index = 0; index < registered_files.size(); ++index) {
+		out << "      \"" << registered_files[index] << "\"";
+		if (index + 1 != registered_files.size()) {
+			out << ',';
+		}
+		out << '\n';
+	}
+	out
+		<< "    ]\n"
+		<< "  }\n"
+		<< "}\n";
+	return static_cast<bool>(out);
 }
 
 std::string MsgNameSlotCode(int slot_input) {
@@ -243,6 +285,27 @@ struct RenderCompositionInputs {
 	cv::Mat layerleftlegfront;
 };
 
+cv::Mat CreateCapeRenderLayer(const cv::Mat& cape) {
+	if (cape.empty()) {
+		return cv::Mat();
+	}
+
+	// Minecraft's outward-facing 10x16 cape panel starts at atlas pixel (1, 1).
+	// Pose it behind the character so the selected cape remains visible in the
+	// front-facing character-select artwork without covering Steve or Alex.
+	cv::Mat cape_atlas = cape;
+	cv::Mat cape_front = CropAndScale(cape_atlas, cv::Rect(1, 1, 10, 16));
+	RenderPerspectiveTransformation(
+		260, 500,
+		705, 520,
+		485, 1370,
+		-115, 1135,
+		PartSize::Cape,
+		cape_front
+	);
+	return cape_front;
+}
+
 // Crops one cube face out of the skin, scales it up to render resolution, and
 // applies that face's lighting while it is still in UV space -- see
 // RenderLighting.hpp for why the lighting has to be applied before the warp.
@@ -255,10 +318,14 @@ cv::Mat LitFace(cv::Mat& skin, cv::Rect rect, CubeFace face, cv::Size uv_extent 
 cv::Mat ComposeRenderedSurface(
 	RenderCompositionInputs parts,
 	const cv::Mat& head_shadow,
-	const cv::Mat& leg_shadow
+	const cv::Mat& leg_shadow,
+	const cv::Mat& cape_layer
 ) {
 	cv::Mat surface(1864, 968, CV_8UC4);
 	surface.setTo(0);
+	if (!cape_layer.empty()) {
+		OverlayImage(surface, cape_layer, cv::Point(0, 0));
+	}
 
 	OverlayImage(surface, parts.leftarmside, cv::Point(0, 0));
 
@@ -317,7 +384,8 @@ cv::Mat ComposeRenderedSurface(
 
 } // namespace
 
-cv::Mat CreateRender(cv::Mat& skin, bool model) {
+cv::Mat CreateRender(cv::Mat& skin, bool model, const cv::Mat& cape) {
+	const cv::Mat cape_layer = CreateCapeRenderLayer(cape);
 
 	if (model)
 	{
@@ -397,7 +465,8 @@ cv::Mat CreateRender(cv::Mat& skin, bool model) {
 				rightlegside, rightlegfront, leftlegfront, layerrightlegside, layerrightlegfront, layerleftlegfront
 			},
 			HEAD_SHADOW,
-			LEG_SHADOW
+			LEG_SHADOW,
+			cape_layer
 		);
 	}
 	else
@@ -475,7 +544,8 @@ cv::Mat CreateRender(cv::Mat& skin, bool model) {
 				rightlegside, rightlegfront, leftlegfront, layerrightlegside, layerrightlegfront, layerleftlegfront
 			},
 			HEAD_SHADOW,
-			LEG_SHADOW
+			LEG_SHADOW,
+			cape_layer
 		);
 	}
 }
@@ -484,23 +554,22 @@ int main(int argc, char* argv[]) {
 
 	auto print_usage = []() {
 		std::cout << "Usage:" << std::endl;
-		std::cout << "  SteveModMaker <minecraft_username> <slot_number> [arm_type]" << std::endl;
-		std::cout << "  SteveModMaker <minecraft_username> --patch-subdir <folder_name> <slot_number> [arm_type]" << std::endl;
-		std::cout << "  SteveModMaker <minecraft_username> -p <folder_name> <slot_number> [arm_type]" << std::endl;
-		std::cout << "  SteveModMaker <minecraft_username> --special-message <boxing_ring_message> <slot_number> [arm_type]" << std::endl;
-		std::cout << "  SteveModMaker <minecraft_username> -m <boxing_ring_message> <slot_number> [arm_type]" << std::endl;
-		std::cout << "  SteveModMaker --skin-file <skin_png_path> <slot_number> [arm_type]" << std::endl;
-		std::cout << "  SteveModMaker --skin-file <skin_png_path> --player-name <minecraft_username> <slot_number> [arm_type]" << std::endl;
-		std::cout << "  SteveModMaker --skin-file <skin_png_path> --patch-subdir <folder_name> <slot_number> [arm_type]" << std::endl;
-		std::cout << "  SteveModMaker --skin-file <skin_png_path> --special-message <boxing_ring_message> <slot_number> [arm_type]" << std::endl;
-		std::cout << "  SteveModMaker --skin-file <skin_png_path> --player-name <minecraft_username> --patch-subdir <folder_name> <slot_number> [arm_type]" << std::endl;
-		std::cout << "  SteveModMaker -f <skin_png_path> <slot_number> [arm_type]" << std::endl;
-		std::cout << "  SteveModMaker -f <skin_png_path> -n <minecraft_username> <slot_number> [arm_type]" << std::endl;
-		std::cout << "  SteveModMaker -f <skin_png_path> -p <folder_name> <slot_number> [arm_type]" << std::endl;
-		std::cout << "  SteveModMaker -f <skin_png_path> -m <boxing_ring_message> <slot_number> [arm_type]" << std::endl;
+		std::cout << "  SteveModMaker <minecraft_username> [options] <slot_number> [arm_type]" << std::endl;
+		std::cout << "  SteveModMaker --skin-file <skin_png_path> [options] <slot_number> [arm_type]" << std::endl;
 		std::cout << "  slot_number: Costume slot (1-8)" << std::endl;
 		std::cout << "  arm_type (optional): 'small' or 'big' to override auto-detection" << std::endl;
+		std::cout << "  --cape: use the Minecraft cape attached to a username" << std::endl;
+		std::cout << "  --cape-official <id>: use an official cape from --list-capes" << std::endl;
+		std::cout << "  --cape-file <cape_png_path>: use a local 64x32 Minecraft cape atlas" << std::endl;
+		std::cout << "  --list-capes: list embedded official cape IDs" << std::endl;
 	};
+
+	if (argc == 2 && std::string(argv[1]) == "--list-capes") {
+		for (const CapeCatalogEntry& cape : OfficialCapeCatalog()) {
+			std::cout << cape.id << '\t' << cape.name << std::endl;
+		}
+		return 0;
+	}
 
 	if (argc < 3) {
 		print_usage();
@@ -514,7 +583,11 @@ int main(int argc, char* argv[]) {
 		std::string player_name;
 		std::string patch_subdir;
 		std::string special_message;
+		std::string cape_file;
+		std::string official_cape_id;
 		std::string forced_arm;
+		bool cape_enabled = false;
+		bool account_cape_requested = false;
 		int slot_input = 0;
 
 		const std::string first_arg = argv[1];
@@ -529,6 +602,32 @@ int main(int argc, char* argv[]) {
 			int idx = 3;
 			while (idx < argc) {
 				const std::string option = argv[idx];
+				if (option == "--cape") {
+					cape_enabled = true;
+					account_cape_requested = true;
+					++idx;
+					continue;
+				}
+				if (option == "--cape-official") {
+					if (idx + 1 >= argc) {
+						std::cout << "Error: --cape-official requires a value" << std::endl;
+						return -1;
+					}
+					official_cape_id = argv[idx + 1];
+					cape_enabled = true;
+					idx += 2;
+					continue;
+				}
+				if (option == "--cape-file") {
+					if (idx + 1 >= argc) {
+						std::cout << "Error: --cape-file requires a value" << std::endl;
+						return -1;
+					}
+					cape_file = argv[idx + 1];
+					cape_enabled = true;
+					idx += 2;
+					continue;
+				}
 				if (option == "--player-name" || option == "-n") {
 					if (idx + 1 >= argc) {
 						std::cout << "Error: --player-name requires a value" << std::endl;
@@ -581,6 +680,32 @@ int main(int argc, char* argv[]) {
 			int idx = 2;
 			while (idx < argc) {
 				const std::string option = argv[idx];
+				if (option == "--cape") {
+					cape_enabled = true;
+					account_cape_requested = true;
+					++idx;
+					continue;
+				}
+				if (option == "--cape-official") {
+					if (idx + 1 >= argc) {
+						std::cout << "Error: --cape-official requires a value" << std::endl;
+						return -1;
+					}
+					official_cape_id = argv[idx + 1];
+					cape_enabled = true;
+					idx += 2;
+					continue;
+				}
+				if (option == "--cape-file") {
+					if (idx + 1 >= argc) {
+						std::cout << "Error: --cape-file requires a value" << std::endl;
+						return -1;
+					}
+					cape_file = argv[idx + 1];
+					cape_enabled = true;
+					idx += 2;
+					continue;
+				}
 				if (option == "--patch-subdir" || option == "-p") {
 					if (idx + 1 >= argc) {
 						std::cout << "Error: --patch-subdir requires a value" << std::endl;
@@ -619,6 +744,14 @@ int main(int argc, char* argv[]) {
 			}
 		}
 
+		const int cape_source_count = static_cast<int>(account_cape_requested)
+			+ static_cast<int>(!cape_file.empty())
+			+ static_cast<int>(!official_cape_id.empty());
+		if (cape_source_count > 1) {
+			std::cerr << "Error: Choose only one cape source: --cape, --cape-official, or --cape-file" << std::endl;
+			return -1;
+		}
+
 		// Parse slot number (1-8)
 		if (slot_input < 1 || slot_input > 8) {
 			std::cout << "Error: Slot number must be between 1 and 8" << std::endl;
@@ -648,6 +781,37 @@ int main(int argc, char* argv[]) {
 		if (skin.empty()) {
 			std::cerr << "[SteveModMaker::Main] Failed to load skin input" << std::endl;
 			return -1;
+		}
+
+		cv::Mat cape;
+		if (cape_enabled) {
+			if (!cape_file.empty()) {
+				std::cout << "[SteveModMaker::Main] Loading Minecraft cape file: " << cape_file << std::endl;
+				cape = LoadCapeFromFile(cape_file);
+			}
+			else if (!official_cape_id.empty()) {
+				const CapeCatalogEntry* official_cape = FindOfficialCape(official_cape_id);
+				if (official_cape == nullptr) {
+					std::cerr << "[SteveModMaker::Main] Error: Unknown official cape ID: " << official_cape_id
+						<< ". Run --list-capes to see valid IDs." << std::endl;
+					return -1;
+				}
+				std::cout << "[SteveModMaker::Main] Loading official Minecraft cape: " << official_cape->name << std::endl;
+				cape = LoadOfficialCape(official_cape_id);
+			}
+			else if (use_skin_file) {
+				std::cerr << "[SteveModMaker::Main] Error: account cape mode requires a Minecraft username" << std::endl;
+				return -1;
+			}
+			else {
+				std::cout << "[SteveModMaker::Main] Downloading Minecraft cape for " << skin_source << "..." << std::endl;
+				cape = DownloadCape(skin_source);
+			}
+			if (cape.empty()) {
+				std::cerr << "[SteveModMaker::Main] Failed to load cape input" << std::endl;
+				return -1;
+			}
+			std::cout << "[SteveModMaker::Main] Minecraft cape ready at canonical 64x32 atlas size." << std::endl;
 		}
 
 		std::cout << "[SteveModMaker::Main] Determining player model..." << std::endl;
@@ -693,7 +857,7 @@ int main(int argc, char* argv[]) {
 
 	std::cout << "[SteveModMaker::Main] Skin ready." << std::endl;
 
-	cv::Mat base_render = CreateRender(skin, model);
+	cv::Mat base_render = CreateRender(skin, model, cape);
 
 	std::cout << "[SteveModMaker::Main] Created Render." << std::endl;
 
@@ -706,7 +870,7 @@ int main(int argc, char* argv[]) {
 		const std::filesystem::path target_slot = output_root / "fighter/pickel/model/body" / ("c" + C0X);
 	std::cout << "[SteveModMaker::Main] Writing fighter template files..." << std::endl;
 	std::filesystem::create_directories(target_slot);
-	const std::array<const char*, 9> fighter_template_files = {
+		const std::array<const char*, 9> fighter_template_files = {
 		"dark_model.numatb",
 		"light_model.numatb",
 		"metamon_model.numatb",
@@ -718,11 +882,40 @@ int main(int argc, char* argv[]) {
 		"model.xmb"
 	};
 	for (const char* file_name : fighter_template_files) {
-		if (!WriteRequiredTemplate(arm_type, file_name, target_slot / file_name)) {
+		if (!WriteRequiredTemplate(arm_type, cape_enabled, file_name, target_slot / file_name)) {
 			std::cerr << "[SteveModMaker::Main] Error: Missing embedded fighter template file: " << file_name << std::endl;
 			return -1;
 		}
 	}
+		if (cape_enabled) {
+			for (const char* file_name : {"model.nusktb", "cape.nutexb"}) {
+				if (!WriteRequiredTemplate(arm_type, true, file_name, target_slot / file_name)) {
+					std::cerr << "[SteveModMaker::Main] Error: Missing embedded cape fighter template file: " << file_name << std::endl;
+					return -1;
+				}
+			}
+			const std::filesystem::path motion_body = output_root / "fighter/pickel/motion/body" / ("c" + C0X);
+			std::filesystem::create_directories(motion_body);
+			for (const char* file_name : {
+				"swing.prc",
+				"update.prc",
+				"a00defaulteyelid.nuanmb",
+				"d02specialhistart.nuanmb",
+				"d02specialairhistart.nuanmb",
+				"d02specialairhi.nuanmb",
+				"d02specialairhimax.nuanmb"
+			}) {
+				if (!WriteRequiredTemplate(arm_type, true, file_name, motion_body / file_name)) {
+					std::cerr << "[SteveModMaker::Main] Error: Missing embedded cape motion template file: " << file_name << std::endl;
+					return -1;
+				}
+			}
+			if (!WriteCapeArcropolisConfig(C0X, output_root)) {
+				std::cerr << "[SteveModMaker::Main] Error: Failed to write ARCropolis cape file registration" << std::endl;
+				return -1;
+			}
+			std::cout << "[SteveModMaker::Main] Using separate Minecraft cape model template with swing physics." << std::endl;
+		}
 	
 		// Ensure UI directories exist for character select screen files.
 		// These are UI part buckets, not skin-slot buckets.
@@ -824,21 +1017,35 @@ int main(int argc, char* argv[]) {
 			bntx.Write((output_root / "ui/replace_patch/chara/chara_6" / ("chara_6_pickel_" + C0X + ".bntx")).string());
 		}
 		std::cout << "[SteveModMaker::Main] Writing fighter texture..." << std::endl;
-		ColorCorrectSkin(skin);
+		ColorCorrectModelTexture(skin);
 		const std::filesystem::path output_nutexb = output_root / "fighter/pickel/model/body" / ("c" + C0X) / "def_pickel_001_col.nutexb";
-	const std::string base_template_key = std::string("Templates/") + (model ? "small_arms/" : "big_arms/") + "def_pickel_001_col.nutexb";
-	const EmbeddedAssets::AssetView* base_asset = EmbeddedAssets::Find(base_template_key);
+		// Cape-enabled Blender templates contain a BC7 placeholder. Replacing its
+		// payload with raw pixels while retaining the BC7 footer corrupts Steve's
+		// skin, so always create a correctly described uncompressed texture.
+		NUTEXB generated_skin("def_pickel_001_col", skin, NUTEXBFormat::R8G8B8A8_SRGB);
+		if (!generated_skin.Save(output_nutexb, 0)) {
+			std::cerr << "[SteveModMaker::Main] Error: Failed to write fighter texture" << std::endl;
+			return -1;
+		}
+		std::cout << "[SteveModMaker::Main] Wrote format-safe fighter texture (" << arm_type << " arms)" << std::endl;
 
-	NUTEXB nut;
-	if (base_asset != nullptr && nut.Open(base_asset->data, base_asset->size) && nut.ReplaceTextureFromMat(skin)) {
-		std::cout << "[SteveModMaker::Main] Using embedded def_pickel_001_col.nutexb template (" << arm_type << " arms)" << std::endl;
-		nut.Save(output_nutexb, 0);
-	}
-	else {
-		std::cout << "[SteveModMaker::Main] Base template not available, generating def_pickel_001_col.nutexb" << std::endl;
-		NUTEXB generated("def_pickel_001_col", skin, NUTEXBFormat::R8G8B8A8_SRGB);
-		generated.Save(output_nutexb, 0);
-	}
+		if (cape_enabled) {
+			cv::Mat model_cape = cape.clone();
+			ColorCorrectModelTexture(model_cape);
+			const std::filesystem::path output_cape = output_root / "fighter/pickel/model/body" / ("c" + C0X) / "cape.nutexb";
+			// The Blender exporter stores template textures as BC7. Replacing their
+			// payload with raw pixels while retaining a BC7 footer corrupts the image,
+			// so create a correctly described uncompressed texture for each cape.
+			NUTEXB generated_cape("cape", model_cape, NUTEXBFormat::R8G8B8A8_SRGB);
+			generated_cape.Save(output_cape, 0);
+			std::cout << "[SteveModMaker::Main] Wrote swappable Minecraft cape texture: " << output_cape << std::endl;
+
+			const std::filesystem::path output_wing = output_root / "fighter/pickel/model/wing" / ("c" + C0X) / "def_wing_001_col.nutexb";
+			std::filesystem::create_directories(output_wing.parent_path());
+			NUTEXB generated_wing("def_wing_001_col", model_cape, NUTEXBFormat::R8G8B8A8_SRGB);
+			generated_wing.Save(output_wing, 0);
+			std::cout << "[SteveModMaker::Main] Applied the selected cape atlas to Steve's Elytra: " << output_wing << std::endl;
+		}
 
 	std::cout << "[SteveModMaker::Main] Done!" << std::endl;
 

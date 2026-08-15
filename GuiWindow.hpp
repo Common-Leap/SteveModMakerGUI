@@ -5,6 +5,7 @@
 #include <QWidget>
 
 class QComboBox;
+class QCheckBox;
 class QLineEdit;
 class QPlainTextEdit;
 class QProcess;
@@ -28,8 +29,13 @@ private:
 	QLineEdit* username_input_;
 	QLineEdit* skin_file_input_;
 	QLineEdit* skin_file_player_name_input_;
+	QCheckBox* cape_enabled_input_;
+	QComboBox* cape_source_input_;
+	QComboBox* official_cape_input_;
+	QLineEdit* cape_file_input_;
 	QLineEdit* special_message_input_;
 	QPushButton* browse_skin_button_;
+	QPushButton* browse_cape_button_;
 	QSpinBox* slot_input_;
 	QComboBox* arm_override_input_;
 	QLineEdit* output_dir_input_;

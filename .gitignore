@@ -36,7 +36,13 @@
 /release*/
 /patch/
 /tools/appimage/
+/test_builds/
 *.AppImage
+
+# Blender/editor backups
+*.blend1
+*.blend2
+*.blend.autosave
 
 # In-source CMake output (if someone configures in the repo root)
 /cmake-build-*/

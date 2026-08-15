@@ -16,10 +16,13 @@ OUTPUT = os.path.join(ROOT, 'EmbeddedAssets.cpp')
 # Order matters only for readability; Find() is a linear scan over the table.
 ASSET_DIRS = [
     ('Resources', ('.png',)),
+    ('Resources/capes', ('.png',)),
     ('Resources/shading', ('.png',)),
     ('Chara_Masks', ('.png',)),
     ('Templates/big_arms', None),
     ('Templates/small_arms', None),
+    ('Templates/big_arms_cape', None),
+    ('Templates/small_arms_cape', None),
 ]
 
 # Resources/ holds working files that the CLI never loads at runtime; keeping
