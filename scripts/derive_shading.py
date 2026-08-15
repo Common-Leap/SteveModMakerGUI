@@ -6,17 +6,17 @@ costume slot.  Rendering the matching Minecraft skin through this tool's own
 geometry gives the un-lit albedo for that exact image, so dividing the two
 recovers the lighting the shipped art was drawn with, with no guesswork.
 
-The recovered model, per cube face and in that face's own UV space, is
+The recovered calibration model, per cube face and in that face's own UV space, is
 
     out[channel] = clamp(albedo[channel] * gain(u, v) + lift_bgr[channel])
 
-`lift_bgr` is a constant signed color offset and `gain` a robust, interpolated
-texel grid. Both are properties of the pose and the lights, not of Steve, so
-they transfer to any skin -- which is the whole point of solving for them in
-UV space rather than baking a canvas-sized overlay.
+`lift_bgr` is a constant signed color offset and `gain` an interpolated texel
+grid. The diagnostic grid exposes unsupported reference areas, so the runtime
+uses its robust median as one gain per face instead of transferring the grid's
+Steve-specific detail onto another skin.
 
 Outputs `Resources/shading/<face>.png` (gain, uint16, 1.0 encoded as 10000) and
-prints the lift table to paste into RenderLighting.cpp.
+prints the median-gain and lift table to paste into RenderLighting.cpp.
 
 Requires opencv-python and numpy.  Run from the repository root:
 
@@ -451,13 +451,14 @@ def main():
             lift_text = 'BGR ' + '/'.join(f'{value:5.2f}' for value in lift)
         print(f'{face:16} {enc.shape[1]:>3}x{enc.shape[0]:<3} '
               f'gain {gain.min():.3f}..{gain.max():.3f}  lift {lift_text}')
-    print('\n// lift table for RenderLighting.cpp')
+    print('\n// robust per-face table for RenderLighting.cpp')
     for face, lift in sorted(lifts.items()):
+        median = float(np.median(gains[face]))
         if np.isscalar(lift):
-            print(f'    {lift:.4f},  // {face}')
+            print(f'    {{{median:.4f}, {{{lift:.4f}, {lift:.4f}, {lift:.4f}}}}},  // {face}')
         else:
-            print('    {{{}}},  // {}'.format(
-                ', '.join(f'{value:.4f}' for value in lift), face))
+            print('    {{{:.4f}, {{{}}}}},  // {}'.format(
+                median, ', '.join(f'{value:.4f}' for value in lift), face))
 
 
 if __name__ == '__main__':

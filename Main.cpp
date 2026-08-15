@@ -1,3 +1,6 @@
+#include <algorithm>
+#include <charconv>
+#include <cctype>
 #include <iostream>
 #include <array>
 #include <cstring>
@@ -123,6 +126,84 @@ bool IsAsciiText(const std::string& input) {
 	return true;
 }
 
+bool IsValidMinecraftUsername(const std::string& username) {
+	if (username.empty() || username.size() > 16) {
+		return false;
+	}
+	for (unsigned char ch : username) {
+		if (!((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
+			(ch >= '0' && ch <= '9') || ch == '_')) {
+			return false;
+		}
+	}
+	return true;
+}
+
+bool TryParseSlotNumber(const char* raw_value, int& slot_out) {
+	if (raw_value == nullptr || *raw_value == '\0') {
+		return false;
+	}
+
+	const char* begin = raw_value;
+	const char* end = raw_value + std::strlen(raw_value);
+	const auto parsed = std::from_chars(begin, end, slot_out);
+	return parsed.ec == std::errc() && parsed.ptr == end;
+}
+
+bool IsSafeRelativeOutputPath(const std::string& value) {
+	if (value.empty()) {
+		return false;
+	}
+
+	const std::filesystem::path path(value);
+	if (path.empty() || path.is_absolute() || path.has_root_name() || path.has_root_directory()) {
+		return false;
+	}
+
+	for (const auto& component : path) {
+		if (component == "." || component == "..") {
+			return false;
+		}
+	}
+	return true;
+}
+
+std::u16string EscapeXmlText(const std::u16string& input) {
+	std::u16string escaped;
+	escaped.reserve(input.size());
+	for (const char16_t ch : input) {
+		switch (ch) {
+		case u'&': escaped += u"&amp;"; break;
+		case u'<': escaped += u"&lt;"; break;
+		case u'>': escaped += u"&gt;"; break;
+		case u'"': escaped += u"&quot;"; break;
+		case u'\'': escaped += u"&apos;"; break;
+		default: escaped.push_back(ch); break;
+		}
+	}
+	return escaped;
+}
+
+bool WriteRenderPng(const cv::Mat& render, const std::filesystem::path& output_path) {
+	if (render.empty() || render.type() != CV_8UC4 || output_path.empty()) {
+		return false;
+	}
+
+	std::string extension = output_path.extension().string();
+	std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char ch) {
+		return static_cast<char>(std::tolower(ch));
+	});
+	if (extension != ".png") {
+		return false;
+	}
+
+	const std::filesystem::path parent = output_path.parent_path();
+	if (!parent.empty()) {
+		std::filesystem::create_directories(parent);
+	}
+	return cv::imwrite(output_path.string(), render);
+}
+
 std::u16string AsciiUpper(const std::u16string& input) {
 	std::u16string result = input;
 	for (char16_t& ch : result) {
@@ -200,14 +281,16 @@ bool WriteMsgNameTemplate(
 		text.insert(closing_tag_pos, chr3_entry);
 	}
 
+	// These values are inserted into XML text nodes. Escape them first so a
+	// local display name such as "A&B" cannot make msg_name.xmsbt malformed.
 	const std::u16string username_u16 = AsciiBytesToUtf16(username);
 	const std::u16string message_u16 = AsciiBytesToUtf16(special_message.empty() ? username : special_message);
 	const std::u16string slot_code_u16 = AsciiBytesToUtf16(msg_slot_code);
 	const std::u16string slot_label_suffix = AsciiBytesToUtf16("_" + msg_slot_code + "_pickel\"");
-	ReplaceAll(text, u"USERNAME", AsciiUpper(username_u16));
-	ReplaceAll(text, u"Username", AsciiCapitalized(username_u16));
-	ReplaceAll(text, u"username", AsciiLower(username_u16));
-	ReplaceAll(text, u"Special-Message", message_u16);
+	ReplaceAll(text, u"USERNAME", EscapeXmlText(AsciiUpper(username_u16)));
+	ReplaceAll(text, u"Username", EscapeXmlText(AsciiCapitalized(username_u16)));
+	ReplaceAll(text, u"username", EscapeXmlText(AsciiLower(username_u16)));
+	ReplaceAll(text, u"Special-Message", EscapeXmlText(message_u16));
 	// Only msg_name.xmsbt slot labels use this custom slot mapping.
 	ReplaceAll(text, u"0x", slot_code_u16);
 	ReplaceAll(text, u"0X", slot_code_u16);
@@ -286,20 +369,20 @@ struct RenderCompositionInputs {
 };
 
 cv::Mat CreateCapeRenderLayer(const cv::Mat& cape) {
-	if (cape.empty()) {
+	if (cape.empty() || cape.type() != CV_8UC4 || cape.cols < 11 || cape.rows < 17) {
 		return cv::Mat();
 	}
 
-	// Minecraft's outward-facing 10x16 cape panel starts at atlas pixel (1, 1).
-	// Pose it behind the character so the selected cape remains visible in the
-	// front-facing character-select artwork without covering Steve or Alex.
+	// The cape's decorated outward face is the 10x16 panel at (1, 1). Let it trail
+	// to Steve's right so it remains identifiable in this front-facing pose. The
+	// character is composited afterward, keeping the cape behind the body.
 	cv::Mat cape_atlas = cape;
 	cv::Mat cape_front = CropAndScale(cape_atlas, cv::Rect(1, 1, 10, 16));
 	RenderPerspectiveTransformation(
 		260, 500,
 		705, 520,
-		485, 1370,
-		-115, 1135,
+		500, 1450,
+		20, 1350,
 		PartSize::Cape,
 		cape_front
 	);
@@ -561,6 +644,7 @@ int main(int argc, char* argv[]) {
 		std::cout << "  --cape: use the Minecraft cape attached to a username" << std::endl;
 		std::cout << "  --cape-official <id>: use an official cape from --list-capes" << std::endl;
 		std::cout << "  --cape-file <cape_png_path>: use a local 64x32 Minecraft cape atlas" << std::endl;
+		std::cout << "  --render-png <png_path>: write the CSS character-select render as a PNG" << std::endl;
 		std::cout << "  --list-capes: list embedded official cape IDs" << std::endl;
 	};
 
@@ -585,9 +669,12 @@ int main(int argc, char* argv[]) {
 		std::string special_message;
 		std::string cape_file;
 		std::string official_cape_id;
+		std::string render_png;
 		std::string forced_arm;
 		bool cape_enabled = false;
 		bool account_cape_requested = false;
+		bool cape_option_seen = false;
+		bool player_name_option_seen = false;
 		int slot_input = 0;
 
 		const std::string first_arg = argv[1];
@@ -603,26 +690,41 @@ int main(int argc, char* argv[]) {
 			while (idx < argc) {
 				const std::string option = argv[idx];
 				if (option == "--cape") {
+					if (cape_option_seen) {
+						std::cerr << "Error: Choose only one cape source: --cape, --cape-official, or --cape-file" << std::endl;
+						return -1;
+					}
+					cape_option_seen = true;
 					cape_enabled = true;
 					account_cape_requested = true;
 					++idx;
 					continue;
 				}
 				if (option == "--cape-official") {
+					if (cape_option_seen) {
+						std::cerr << "Error: Choose only one cape source: --cape, --cape-official, or --cape-file" << std::endl;
+						return -1;
+					}
 					if (idx + 1 >= argc) {
 						std::cout << "Error: --cape-official requires a value" << std::endl;
 						return -1;
 					}
+					cape_option_seen = true;
 					official_cape_id = argv[idx + 1];
 					cape_enabled = true;
 					idx += 2;
 					continue;
 				}
 				if (option == "--cape-file") {
+					if (cape_option_seen) {
+						std::cerr << "Error: Choose only one cape source: --cape, --cape-official, or --cape-file" << std::endl;
+						return -1;
+					}
 					if (idx + 1 >= argc) {
 						std::cout << "Error: --cape-file requires a value" << std::endl;
 						return -1;
 					}
+					cape_option_seen = true;
 					cape_file = argv[idx + 1];
 					cape_enabled = true;
 					idx += 2;
@@ -633,6 +735,7 @@ int main(int argc, char* argv[]) {
 						std::cout << "Error: --player-name requires a value" << std::endl;
 						return -1;
 					}
+					player_name_option_seen = true;
 					player_name = argv[idx + 1];
 					idx += 2;
 					continue;
@@ -655,6 +758,15 @@ int main(int argc, char* argv[]) {
 					idx += 2;
 					continue;
 				}
+				if (option == "--render-png") {
+					if (idx + 1 >= argc) {
+						std::cout << "Error: --render-png requires a value" << std::endl;
+						return -1;
+					}
+					render_png = argv[idx + 1];
+					idx += 2;
+					continue;
+				}
 				break;
 			}
 
@@ -662,7 +774,10 @@ int main(int argc, char* argv[]) {
 				print_usage();
 				return -1;
 			}
-			slot_input = std::stoi(argv[idx]);
+			if (!TryParseSlotNumber(argv[idx], slot_input)) {
+				std::cerr << "Error: Slot number must be an integer between 1 and 8" << std::endl;
+				return -1;
+			}
 			++idx;
 
 			if (idx < argc) {
@@ -681,26 +796,41 @@ int main(int argc, char* argv[]) {
 			while (idx < argc) {
 				const std::string option = argv[idx];
 				if (option == "--cape") {
+					if (cape_option_seen) {
+						std::cerr << "Error: Choose only one cape source: --cape, --cape-official, or --cape-file" << std::endl;
+						return -1;
+					}
+					cape_option_seen = true;
 					cape_enabled = true;
 					account_cape_requested = true;
 					++idx;
 					continue;
 				}
 				if (option == "--cape-official") {
+					if (cape_option_seen) {
+						std::cerr << "Error: Choose only one cape source: --cape, --cape-official, or --cape-file" << std::endl;
+						return -1;
+					}
 					if (idx + 1 >= argc) {
 						std::cout << "Error: --cape-official requires a value" << std::endl;
 						return -1;
 					}
+					cape_option_seen = true;
 					official_cape_id = argv[idx + 1];
 					cape_enabled = true;
 					idx += 2;
 					continue;
 				}
 				if (option == "--cape-file") {
+					if (cape_option_seen) {
+						std::cerr << "Error: Choose only one cape source: --cape, --cape-official, or --cape-file" << std::endl;
+						return -1;
+					}
 					if (idx + 1 >= argc) {
 						std::cout << "Error: --cape-file requires a value" << std::endl;
 						return -1;
 					}
+					cape_option_seen = true;
 					cape_file = argv[idx + 1];
 					cape_enabled = true;
 					idx += 2;
@@ -724,6 +854,15 @@ int main(int argc, char* argv[]) {
 					idx += 2;
 					continue;
 				}
+				if (option == "--render-png") {
+					if (idx + 1 >= argc) {
+						std::cout << "Error: --render-png requires a value" << std::endl;
+						return -1;
+					}
+					render_png = argv[idx + 1];
+					idx += 2;
+					continue;
+				}
 				break;
 			}
 
@@ -731,7 +870,10 @@ int main(int argc, char* argv[]) {
 				print_usage();
 				return -1;
 			}
-			slot_input = std::stoi(argv[idx]);
+			if (!TryParseSlotNumber(argv[idx], slot_input)) {
+				std::cerr << "Error: Slot number must be an integer between 1 and 8" << std::endl;
+				return -1;
+			}
 			++idx;
 
 			if (idx < argc) {
@@ -749,6 +891,18 @@ int main(int argc, char* argv[]) {
 			+ static_cast<int>(!official_cape_id.empty());
 		if (cape_source_count > 1) {
 			std::cerr << "Error: Choose only one cape source: --cape, --cape-official, or --cape-file" << std::endl;
+			return -1;
+		}
+		if (cape_enabled && cape_source_count != 1) {
+			std::cerr << "Error: A cape option requires a non-empty cape source value" << std::endl;
+			return -1;
+		}
+		if (!use_skin_file && !IsValidMinecraftUsername(skin_source)) {
+			std::cerr << "Error: Minecraft username must be 1-16 letters, numbers, or underscores" << std::endl;
+			return -1;
+		}
+		if (!patch_subdir.empty() && !IsSafeRelativeOutputPath(patch_subdir)) {
+			std::cerr << "Error: --patch-subdir must be a safe relative path without '.' or '..' components" << std::endl;
 			return -1;
 		}
 
@@ -838,8 +992,12 @@ int main(int argc, char* argv[]) {
 			std::cout << "[SteveModMaker::Main] Auto-detected " << arm_type << " arms template from skin texture" << std::endl;
 		}
 
-		if (player_name.empty()) {
+		if (player_name.empty() && !player_name_option_seen) {
 			player_name = use_skin_file ? std::filesystem::path(skin_source).stem().string() : skin_source;
+		}
+		if (player_name.empty() || player_name.find_first_not_of(' ') == std::string::npos) {
+			std::cerr << "[SteveModMaker::Main] Error: Player name cannot be empty" << std::endl;
+			return -1;
 		}
 		if (special_message.empty()) {
 			special_message = player_name;
@@ -857,12 +1015,21 @@ int main(int argc, char* argv[]) {
 
 	std::cout << "[SteveModMaker::Main] Skin ready." << std::endl;
 
-	cv::Mat base_render = CreateRender(skin, model, cape);
+		cv::Mat base_render = CreateRender(skin, model, cape);
 
-	std::cout << "[SteveModMaker::Main] Created Render." << std::endl;
+		std::cout << "[SteveModMaker::Main] Created Render." << std::endl;
+		if (!render_png.empty()) {
+			if (!WriteRenderPng(base_render, render_png)) {
+				std::cerr << "[SteveModMaker::Main] Error: Failed to write PNG render: " << render_png << std::endl;
+				return -1;
+			}
+			std::cout << "[SteveModMaker::Main] Wrote CSS render PNG: " << render_png << std::endl;
+		}
 
 #ifdef _DEBUG
-	imwrite("Final_Render.png", base_render);
+		if (!imwrite("Final_Render.png", base_render)) {
+			std::cerr << "[SteveModMaker::Main] Warning: Failed to write debug render PNG" << std::endl;
+		}
 #endif
 
 	std::cout << "[SteveModMaker::Main] Creating output directories..." << std::endl;
@@ -969,7 +1136,10 @@ int main(int argc, char* argv[]) {
 			OverlayImage(chara_0, render_cpy, cv::Point(-25, -2));
 
 			BNTX bntx(chara_0, "chara_0_pickel_" + C0X);
-			bntx.Write((output_root / "ui/replace_patch/chara/chara_0" / ("chara_0_pickel_" + C0X + ".bntx")).string());
+			if (!bntx.Write((output_root / "ui/replace_patch/chara/chara_0" / ("chara_0_pickel_" + C0X + ".bntx")).string())) {
+				std::cerr << "[SteveModMaker::Main] Error: Failed to write chara_0 BNTX" << std::endl;
+				return -1;
+			}
 		}
 	std::cout << "[SteveModMaker::Main] Creating chara_1 image..." << std::endl;
 	{ // chara_1
@@ -977,7 +1147,10 @@ int main(int argc, char* argv[]) {
 			cv::resize(base_render, render_cpy, cv::Size(280, 540), 0, 0, cv::INTER_LANCZOS4);
 			OverlayImage(chara_1, render_cpy, cv::Point(93, 63));
 			BNTX bntx(chara_1, "chara_1_pickel_" + C0X);
-			bntx.Write((output_root / "ui/replace_patch/chara/chara_1" / ("chara_1_pickel_" + C0X + ".bntx")).string());
+			if (!bntx.Write((output_root / "ui/replace_patch/chara/chara_1" / ("chara_1_pickel_" + C0X + ".bntx")).string())) {
+				std::cerr << "[SteveModMaker::Main] Error: Failed to write chara_1 BNTX" << std::endl;
+				return -1;
+			}
 		}
 	std::cout << "[SteveModMaker::Main] Creating chara_2 image..." << std::endl;
 	{ // chara_2
@@ -988,12 +1161,18 @@ int main(int argc, char* argv[]) {
 			cv::resize(head, head_scaled, cv::Size(45, 45), 0, 0, cv::INTER_NEAREST);
 			OverlayImage(chara_2, head_scaled, cv::Point(10, 9));
 			BNTX bntx(chara_2, "chara_2_pickel_" + C0X);
-			bntx.Write((output_root / "ui/replace_patch/chara/chara_2" / ("chara_2_pickel_" + C0X + ".bntx")).string());
+			if (!bntx.Write((output_root / "ui/replace_patch/chara/chara_2" / ("chara_2_pickel_" + C0X + ".bntx")).string())) {
+				std::cerr << "[SteveModMaker::Main] Error: Failed to write chara_2 BNTX" << std::endl;
+				return -1;
+			}
 		}
 		std::cout << "[SteveModMaker::Main] Creating chara_3 image..." << std::endl;
 		{ // chara_3
 			BNTX bntx(base_render, "chara_3_pickel_" + C0X);
-			bntx.Write((output_root / "ui/replace_patch/chara/chara_3" / ("chara_3_pickel_" + C0X + ".bntx")).string());
+			if (!bntx.Write((output_root / "ui/replace_patch/chara/chara_3" / ("chara_3_pickel_" + C0X + ".bntx")).string())) {
+				std::cerr << "[SteveModMaker::Main] Error: Failed to write chara_3 BNTX" << std::endl;
+				return -1;
+			}
 		}
 	std::cout << "[SteveModMaker::Main] Creating chara_4 image..." << std::endl;
 	{ // chara_4
@@ -1003,7 +1182,10 @@ int main(int argc, char* argv[]) {
 			Chara4Mask(chara_4, chara_4_mask);
 
 			BNTX bntx(chara_4, "chara_4_pickel_" + C0X);
-			bntx.Write((output_root / "ui/replace_patch/chara/chara_4" / ("chara_4_pickel_" + C0X + ".bntx")).string());
+			if (!bntx.Write((output_root / "ui/replace_patch/chara/chara_4" / ("chara_4_pickel_" + C0X + ".bntx")).string())) {
+				std::cerr << "[SteveModMaker::Main] Error: Failed to write chara_4 BNTX" << std::endl;
+				return -1;
+			}
 		}
 		std::cout << "[SteveModMaker::Main] Creating chara_6 image..." << std::endl;
 		{ // chara_6
@@ -1014,7 +1196,10 @@ int main(int argc, char* argv[]) {
 			OverlayImage(chara_6, render_cpy, cv::Point(-150, -110));
 
 		 	BNTX bntx(chara_6, "chara_6_pickel_" + C0X);
-			bntx.Write((output_root / "ui/replace_patch/chara/chara_6" / ("chara_6_pickel_" + C0X + ".bntx")).string());
+			if (!bntx.Write((output_root / "ui/replace_patch/chara/chara_6" / ("chara_6_pickel_" + C0X + ".bntx")).string())) {
+				std::cerr << "[SteveModMaker::Main] Error: Failed to write chara_6 BNTX" << std::endl;
+				return -1;
+			}
 		}
 		std::cout << "[SteveModMaker::Main] Writing fighter texture..." << std::endl;
 		ColorCorrectModelTexture(skin);
@@ -1037,13 +1222,19 @@ int main(int argc, char* argv[]) {
 			// payload with raw pixels while retaining a BC7 footer corrupts the image,
 			// so create a correctly described uncompressed texture for each cape.
 			NUTEXB generated_cape("cape", model_cape, NUTEXBFormat::R8G8B8A8_SRGB);
-			generated_cape.Save(output_cape, 0);
+			if (!generated_cape.Save(output_cape, 0)) {
+				std::cerr << "[SteveModMaker::Main] Error: Failed to write cape texture" << std::endl;
+				return -1;
+			}
 			std::cout << "[SteveModMaker::Main] Wrote swappable Minecraft cape texture: " << output_cape << std::endl;
 
 			const std::filesystem::path output_wing = output_root / "fighter/pickel/model/wing" / ("c" + C0X) / "def_wing_001_col.nutexb";
 			std::filesystem::create_directories(output_wing.parent_path());
 			NUTEXB generated_wing("def_wing_001_col", model_cape, NUTEXBFormat::R8G8B8A8_SRGB);
-			generated_wing.Save(output_wing, 0);
+			if (!generated_wing.Save(output_wing, 0)) {
+				std::cerr << "[SteveModMaker::Main] Error: Failed to write Elytra texture" << std::endl;
+				return -1;
+			}
 			std::cout << "[SteveModMaker::Main] Applied the selected cape atlas to Steve's Elytra: " << output_wing << std::endl;
 		}
 

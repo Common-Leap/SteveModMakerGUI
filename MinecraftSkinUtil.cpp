@@ -20,6 +20,9 @@ bool TryConvertToBGRA(const cv::Mat& input, cv::Mat& output) {
 	if (input.empty()) {
 		return false;
 	}
+	if (input.depth() != CV_8U) {
+		return false;
+	}
 
 	switch (input.channels()) {
 	case 4:

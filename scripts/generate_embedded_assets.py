@@ -17,7 +17,6 @@ OUTPUT = os.path.join(ROOT, 'EmbeddedAssets.cpp')
 ASSET_DIRS = [
     ('Resources', ('.png',)),
     ('Resources/capes', ('.png',)),
-    ('Resources/shading', ('.png',)),
     ('Chara_Masks', ('.png',)),
     ('Templates/big_arms', None),
     ('Templates/small_arms', None),

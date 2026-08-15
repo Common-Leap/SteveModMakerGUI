@@ -104,6 +104,8 @@ struct RLTEntry {
     uint8_t  PaddingCount;
 };
 
+#pragma pack(pop)
+
 // CANNOT be memory-mapped.
 struct RLTTable {
     char Magic[4] = { '_', 'R', 'L', 'T' };
@@ -160,8 +162,6 @@ struct STRSection {
     uint64_t GetSize();
 };
 
-#pragma pack(pop)
-
 class BNTX {
 private:
     BNTXHeader header;
@@ -182,5 +182,5 @@ private:
 public:
     BNTX(cv::Mat& mat, const std::string& name);
 
-    void Write(const std::string& path);
+    bool Write(const std::string& path);
 };

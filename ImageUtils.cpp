@@ -35,6 +35,10 @@ void AlphaBlendColors(RGBA& BottomPixel, const RGBA& TopPixel) {
 }
 
 cv::Mat RenderPerspectiveTransformation(float topleftx, float toplefty, float toprightx, float toprighty, float bottomrightx, float bottomrighty, float bottomleftx, float bottomlefty, PartSize bodypart, cv::Mat& SOURCE_IMAGE) {
+	if (SOURCE_IMAGE.empty() || SOURCE_IMAGE.type() != CV_8UC4) {
+		return cv::Mat();
+	}
+
 	constexpr float kSupersample = 2.0f;
 	cv::Point2f imagePoints[4] = {
 		{topleftx * kSupersample, toplefty * kSupersample},
@@ -59,6 +63,8 @@ cv::Mat RenderPerspectiveTransformation(float topleftx, float toplefty, float to
 	case PartSize::Cape:
 		transform = cv::getPerspectiveTransform(imagePoints, CAPE_SIZE);
 		break;
+	default:
+		return cv::Mat();
 	}
 
 	// Warp premultiplied color so the transparent border contributes no black
@@ -122,6 +128,12 @@ cv::Mat RenderPerspectiveTransformation(float topleftx, float toplefty, float to
 }
 
 cv::Mat CropAndScale(cv::Mat& skin, cv::Rect rect) {
+	if (skin.empty() || skin.type() != CV_8UC4 || rect.x < 0 || rect.y < 0 ||
+		rect.width <= 0 || rect.height <= 0 || rect.x + rect.width > skin.cols ||
+		rect.y + rect.height > skin.rows) {
+		return cv::Mat();
+	}
+
 	cv::Mat cropped = skin(rect);
 	cv::Mat scaled(cropped.cols * 100, cropped.rows * 100, CV_8UC4);
 	cv::resize(cropped, scaled, cv::Size(cropped.cols * 100, cropped.rows * 100), 0, 0, cv::INTER_NEAREST);
@@ -129,9 +141,9 @@ cv::Mat CropAndScale(cv::Mat& skin, cv::Rect rect) {
 }
 
 void OverlayImage(cv::Mat& background, const cv::Mat& foreground, cv::Point2i location) {
-
-	assert(background.channels() == 4);
-	assert(foreground.channels() == 4);
+	if (background.empty() || foreground.empty() || background.type() != CV_8UC4 || foreground.type() != CV_8UC4) {
+		return;
+	}
 
 	// start at the row indicated by location, or at row 0 if location.y is negative.
 	for (int y = std::max(location.y, 0); y < background.rows; ++y) {
@@ -159,6 +171,11 @@ void OverlayImage(cv::Mat& background, const cv::Mat& foreground, cv::Point2i lo
 
 void Chara4Mask(cv::Mat& surface, cv::Mat& mask)
 {
+	if (surface.empty() || mask.empty() || surface.type() != CV_8UC4 || mask.type() != CV_8UC4 ||
+		surface.size() != mask.size()) {
+		return;
+	}
+
 	for (int y = 0; y < surface.rows; ++y) {
 		for (int x = 0; x < surface.cols; ++x) {
 			RGBA& colorPixel = *(RGBA*)&surface.data[y * surface.step + x * 4];

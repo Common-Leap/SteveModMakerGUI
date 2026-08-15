@@ -22,13 +22,22 @@ bool NUTEXB::Open(const std::filesystem::path& filepath) {
 	if (!FSTREAM) {
 		return false;
 	}
-	FSTREAM.seekg(-0xB0, std::ios_base::end);
+	FSTREAM.seekg(0, std::ios_base::end);
+	const std::streamoff file_size = FSTREAM.tellg();
+	if (file_size < static_cast<std::streamoff>(sizeof(footer))) {
+		return false;
+	}
+	const std::streamoff footer_offset = file_size - static_cast<std::streamoff>(sizeof(footer));
+	FSTREAM.seekg(footer_offset);
 	FSTREAM.read((char*)&footer, sizeof(footer));
+	if (!FSTREAM || footer.size == 0 || footer.size > static_cast<uint64_t>(footer_offset)) {
+		return false;
+	}
 	FSTREAM.seekg(0);
 	IMAGE_DATA.resize(footer.size);
-	FSTREAM.read((char*)&IMAGE_DATA[0], footer.size);
+	FSTREAM.read(reinterpret_cast<char*>(IMAGE_DATA.data()), static_cast<std::streamsize>(footer.size));
 	FSTREAM.close();
-	return true;
+	return static_cast<bool>(FSTREAM);
 };
 
 bool NUTEXB::Open(const uint8_t* data, size_t size) {
@@ -38,7 +47,7 @@ bool NUTEXB::Open(const uint8_t* data, size_t size) {
 
 	const size_t footer_offset = size - sizeof(NUTEXBFooter);
 	memcpy(&footer, data + footer_offset, sizeof(NUTEXBFooter));
-	if (footer.size == 0 || footer.size > footer_offset) {
+	if (footer.size == 0 || footer.size > footer_offset || footer.size > size - sizeof(NUTEXBFooter)) {
 		return false;
 	}
 
@@ -67,7 +76,8 @@ bool NUTEXB::ReplaceTextureFromMat(cv::Mat& mat) {
 
 	const uint32_t width = footer.width;
 	const uint32_t height = footer.height;
-	const uint32_t mip_count = footer.mip_count > 0 ? footer.mip_count : 1;
+	const uint32_t mip_count = std::min(std::max(footer.mip_count, 1u), 16u);
+	footer.mip_count = mip_count;
 
 	if (width == 0 || height == 0) {
 		return false;
@@ -149,7 +159,13 @@ bool NUTEXB::ReplaceTextureFromMat(cv::Mat& mat) {
 NUTEXB::NUTEXB(const std::string& internal_name, void* data, size_t size) {
 	InitializeFooterMagic(footer);
 	IMAGE_DATA.resize(size);
-	memcpy(&IMAGE_DATA[0], data, size);
+	if (size > 0 && data != nullptr) {
+		memcpy(IMAGE_DATA.data(), data, size);
+	}
+	else if (size > 0) {
+		IMAGE_DATA.clear();
+		size = 0;
+	}
 	footer.size = size;
 	strncpy(footer.internal_name, internal_name.c_str(), 0x40 - 1);
 	footer.internal_name[0x40 - 1] = '\0';
@@ -183,11 +199,14 @@ NUTEXB::NUTEXB(const std::string& internal_name, cv::Mat& mat, NUTEXBFormat form
 NUTEXBFooter& NUTEXB::GetFooter() { return footer; }
 
 bool NUTEXB::Save(const std::filesystem::path& filepath, unsigned int pad) {
+	if (footer.size == 0 || IMAGE_DATA.size() < footer.size) {
+		return false;
+	}
 	std::ofstream NUT_OUT(filepath, std::ios::out | std::ios::binary);
 	if (!NUT_OUT) {
 		return false;
 	}
-	NUT_OUT.write((char*)&IMAGE_DATA[0], footer.size);
+	NUT_OUT.write(reinterpret_cast<const char*>(IMAGE_DATA.data()), static_cast<std::streamsize>(footer.size));
 
 	char null = 0;
 	for (unsigned int x = 0; x < pad; x++)
@@ -195,19 +214,19 @@ bool NUTEXB::Save(const std::filesystem::path& filepath, unsigned int pad) {
 
 	NUT_OUT.write(reinterpret_cast<char*>(&footer), sizeof(footer));
 	NUT_OUT.close();
-	return true;
+	return static_cast<bool>(NUT_OUT);
 }
 
 bool NUTEXB::Save(std::ostream& NUT_OUT, unsigned int pad) {
-	if (!NUT_OUT) {
+	if (!NUT_OUT || footer.size == 0 || IMAGE_DATA.size() < footer.size) {
 		return false;
 	}
-	NUT_OUT.write((char*)&IMAGE_DATA[0], footer.size);
+	NUT_OUT.write(reinterpret_cast<const char*>(IMAGE_DATA.data()), static_cast<std::streamsize>(footer.size));
 
 	char null = 0;
 	for (unsigned int x = 0; x < pad; x++)
 		NUT_OUT.write(&null, 1);
 
 	NUT_OUT.write(reinterpret_cast<char*>(&footer), sizeof(footer));
-	return true;
+	return static_cast<bool>(NUT_OUT);
 }

@@ -77,6 +77,7 @@ SteveModMaker --skin-file <skin_png_path> [options] <slot_number> [arm_type]
 - `--cape`: add the username's current Minecraft cape using a separate cape-enabled model template
 - `--cape-official <id>`: add one of the bundled official Minecraft capes
 - `--cape-file <cape_png_path>`: add a local Minecraft cape atlas; accepts the standard 64x32 PNG or an integer-scaled equivalent
+- `--render-png <png_path>`: write the same cape-aware Character Select Screen render used for `chara_3` as a PNG
 - `--list-capes`: print the IDs accepted by `--cape-official`
 - `player_name` and `special_message` must use printable ASCII only
 - Option flags must appear before `<slot_number>`. After `<slot_number>`, only optional `[arm_type]` is accepted.
@@ -103,6 +104,7 @@ Model-bound skin, cape, and Elytra textures receive the same anti-glare color tr
 
 Output is written under `./...` relative to the current working directory.
 With `--patch-subdir`, output is written under `./<folder_name>/...`.
+`--render-png` accepts a `.png` path and creates its parent folder when needed.
 This includes `./ui/message/msg_name.xmsbt` (or `./<folder_name>/ui/message/msg_name.xmsbt`), generated from bundled templates:
 - slot 1 uses `Resources/msg_name_slot1_template.xmsbt`
 - slots 2-8 use `Resources/msg_name_other_slots_template.xmsbt`

@@ -1,4 +1,5 @@
 #include <fstream>
+#include <stdexcept>
 #include "BNTX.hpp"
 #include "tegra_swizzle.hpp"
 
@@ -133,6 +134,9 @@ uint64_t STRSection::GetSize() {
 }
 
 BNTX::BNTX(cv::Mat& mat, const std::string& name) {
+	if (mat.empty() || mat.type() != CV_8UC4) {
+		throw std::invalid_argument("BNTX images must be non-empty CV_8UC4 matrices");
+	}
 
 	/*
 	DirectX::Image dximg{
@@ -268,9 +272,12 @@ BNTX::BNTX(cv::Mat& mat, const std::string& name) {
 
 }
 
-void BNTX::Write(const std::string& path) {
+bool BNTX::Write(const std::string& path) {
 	std::cout << "[SteveModMaker::BNTX::Write] Writing image to BNTX..." << std::endl;
 	std::ofstream file(path, std::ios::out | std::ios::binary);
+	if (!file) {
+		return false;
+	}
 	file.write((char*)&header, sizeof(BNTXHeader));
 	file.write((char*)&nx_header, sizeof(NXHeader));
 	file.write(mem_pool, MEM_POOL_SIZE);
@@ -285,5 +292,9 @@ void BNTX::Write(const std::string& path) {
 	file.write((char*)&brtd_section, sizeof(BRTDSection));
 	file.write((char*)&IMAGE_DATA[0], IMAGE_DATA.size());
 	relocation_table.Write(file);
+	if (!file) {
+		return false;
+	}
 	file.close();
+	return static_cast<bool>(file);
 }
