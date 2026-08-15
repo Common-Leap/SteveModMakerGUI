@@ -373,20 +373,24 @@ cv::Mat CreateCapeRenderLayer(const cv::Mat& cape) {
 		return cv::Mat();
 	}
 
-	// The cape's decorated outward face is the 10x16 panel at (1, 1). Let it trail
-	// to Steve's right so it remains identifiable in this front-facing pose. The
-	// character is composited afterward, keeping the cape behind the body.
-	cv::Mat cape_atlas = cape;
-	cv::Mat cape_front = CropAndScale(cape_atlas, cv::Rect(1, 1, 10, 16));
-	RenderPerspectiveTransformation(
-		260, 500,
-		705, 520,
-		500, 1450,
-		20, 1350,
-		PartSize::Cape,
-		cape_front
+	// A worn cape is almost completely occluded in this tightly cropped,
+	// front-facing pose. Show the decorated outward panel as a deliberate swatch
+	// in the unused lower-left space instead of inventing a cape-shaped limb.
+	const cv::Mat outward_panel = cape(cv::Rect(1, 1, 10, 16));
+	cv::Mat preview;
+	cv::resize(outward_panel, preview, cv::Size(180, 288), 0, 0, cv::INTER_NEAREST);
+	cv::Mat framed;
+	cv::copyMakeBorder(
+		preview,
+		framed,
+		4, 4, 4, 4,
+		cv::BORDER_CONSTANT,
+		cv::Scalar(20, 20, 20, 220)
 	);
-	return cape_front;
+
+	cv::Mat layer(1864, 968, CV_8UC4, cv::Scalar(0, 0, 0, 0));
+	OverlayImage(layer, framed, cv::Point(24, 1450));
+	return layer;
 }
 
 // Crops one cube face out of the skin, scales it up to render resolution, and

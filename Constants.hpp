@@ -7,7 +7,6 @@ enum class PartSize : int {
 	Size4x12 = 1,
 	Size3x12 = 2,
 	Body = 3,
-	Cape = 4,
 };
 
 enum class BodyType : int {
@@ -43,11 +42,4 @@ inline cv::Point2f BODY_SIZE[4] = {
 	{800.0, 0.0},
 	{800.0, 1200.0},
 	{0.0, 1200.0}
-};
-
-inline cv::Point2f CAPE_SIZE[4] = {
-	{0.0, 0.0},
-	{1000.0, 0.0},
-	{1000.0, 1600.0},
-	{0.0, 1600.0}
 };
