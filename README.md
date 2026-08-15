@@ -10,7 +10,7 @@ I assume we are all responsible adults capable of making our own moral descision
 
 # SteveModMaker
 
-Current release: `v1.2.0`
+Current release: `v1.2.1`
 
 Generate Steve mods for Super Smash Bros. Ultimate from Minecraft skins.
 
@@ -20,6 +20,14 @@ This project provides two executables:
 - `SteveModMakerGUI`: desktop GUI that runs the CLI
 
 Windows baseline target: Windows 11 x64.
+
+## Project Layout
+
+- `src/core/`: shared skin, cape, texture, lighting, and mod-generation code
+- `src/cli/`: command-line entry point
+- `src/gui/`: Qt desktop application and bundled cape resources
+- `src/generated/`: embedded asset and template sources used by the build
+- `Resources/`, `Chara_Masks/`, and `Templates/`: source assets and model templates
 
 ## Quick Start (No Build)
 

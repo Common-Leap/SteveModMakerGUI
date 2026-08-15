@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerate EmbeddedAssets.cpp from the on-disk asset directories.
+"""Regenerate src/generated/EmbeddedAssets.cpp from the on-disk asset directories.
 
 The CLI ships every resource it needs inside the binary so a release is a single
 executable. This script turns the files under Resources/, Chara_Masks/ and
@@ -11,7 +11,7 @@ import os
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUTPUT = os.path.join(ROOT, 'EmbeddedAssets.cpp')
+OUTPUT = os.path.join(ROOT, 'src', 'generated', 'EmbeddedAssets.cpp')
 
 # Order matters only for readability; Find() is a linear scan over the table.
 ASSET_DIRS = [
@@ -135,6 +135,7 @@ def emit(assets):
 def main():
     assets = collect()
     text = emit(assets)
+    os.makedirs(os.path.dirname(OUTPUT), exist_ok=True)
     with open(OUTPUT, 'w') as f:
         f.write(text)
     total = sum(len(d) for _, d in assets)

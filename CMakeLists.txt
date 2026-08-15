@@ -8,7 +8,7 @@ file(STRINGS "${STEVE_MOD_MAKER_VERSION_FILE}" STEVE_MOD_MAKER_VERSION LIMIT_COU
 string(STRIP "${STEVE_MOD_MAKER_VERSION}" STEVE_MOD_MAKER_VERSION)
 string(REGEX REPLACE "^v" "" STEVE_MOD_MAKER_VERSION "${STEVE_MOD_MAKER_VERSION}")
 if(NOT STEVE_MOD_MAKER_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
-    message(FATAL_ERROR "VERSION must contain a semantic version such as 1.2.0")
+    message(FATAL_ERROR "VERSION must contain a semantic version such as 1.2.1")
 endif()
 
 project(SteveModMaker VERSION "${STEVE_MOD_MAKER_VERSION}" LANGUAGES CXX)
@@ -29,6 +29,12 @@ option(
     "Automatically package an AppImage during regular builds (Linux x86_64 only)."
     ${STEVE_MOD_MAKER_AUTO_APPIMAGE_DEFAULT}
 )
+
+set(SMM_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
+set(SMM_CORE_DIR "${SMM_SRC_DIR}/core")
+set(SMM_CLI_DIR "${SMM_SRC_DIR}/cli")
+set(SMM_GUI_DIR "${SMM_SRC_DIR}/gui")
+set(SMM_GENERATED_DIR "${SMM_SRC_DIR}/generated")
 
 # Required dependencies for CLI generator
 find_package(OpenCV REQUIRED COMPONENTS imgproc core imgcodecs)
@@ -63,21 +69,17 @@ if(STEVE_MOD_MAKER_PREFER_SYSTEM_TEGRA_SWIZZLE)
     )
 endif()
 
-include_directories(${CMAKE_SOURCE_DIR})
-include_directories(${OpenCV_INCLUDE_DIRS})
-include_directories(${RAPIDJSON_INCLUDE_DIR})
-
 set(CLI_SOURCES
-    Base64.cpp
-    BNTX.cpp
-    CapeCatalog.cpp
-    EmbeddedAssets.cpp
-    ImageUtils.cpp
-    Main.cpp
-    MinecraftSkinUtil.cpp
-    Nutexb.cpp
-    RenderLighting.cpp
-    UiCharaDbTemplate.cpp
+    ${SMM_CORE_DIR}/Base64.cpp
+    ${SMM_CORE_DIR}/BNTX.cpp
+    ${SMM_CORE_DIR}/CapeCatalog.cpp
+    ${SMM_GENERATED_DIR}/EmbeddedAssets.cpp
+    ${SMM_CORE_DIR}/ImageUtils.cpp
+    ${SMM_CLI_DIR}/Main.cpp
+    ${SMM_CORE_DIR}/MinecraftSkinUtil.cpp
+    ${SMM_CORE_DIR}/Nutexb.cpp
+    ${SMM_CORE_DIR}/RenderLighting.cpp
+    ${SMM_GENERATED_DIR}/UiCharaDbTemplate.cpp
 )
 
 set(MSG_NAME_TEMPLATE_GENERATED "${CMAKE_BINARY_DIR}/generated/MsgNameTemplate.cpp")
@@ -97,26 +99,34 @@ add_custom_command(
 list(APPEND CLI_SOURCES "${MSG_NAME_TEMPLATE_GENERATED}")
 
 if(NOT TEGRA_SWIZZLE_LIB)
-    list(APPEND CLI_SOURCES TegraSwizzleCompat.cpp)
+    list(APPEND CLI_SOURCES ${SMM_CORE_DIR}/TegraSwizzleCompat.cpp)
 endif()
 
 set(CLI_HEADERS
-    Base64.hpp
-    BNTX.hpp
-    CapeCatalog.hpp
-    CapeLayout.hpp
-    Constants.hpp
-    EmbeddedAssets.hpp
-    ImageUtils.hpp
-    MinecraftSkinUtil.hpp
-    MsgNameTemplate.hpp
-    Nutexb.hpp
-    RenderLighting.hpp
-    tegra_swizzle.hpp
-    UiCharaDbTemplate.hpp
+    ${SMM_CORE_DIR}/Base64.hpp
+    ${SMM_CORE_DIR}/BNTX.hpp
+    ${SMM_CORE_DIR}/CapeCatalog.hpp
+    ${SMM_CORE_DIR}/CapeLayout.hpp
+    ${SMM_CORE_DIR}/Constants.hpp
+    ${SMM_CORE_DIR}/EmbeddedAssets.hpp
+    ${SMM_CORE_DIR}/ImageUtils.hpp
+    ${SMM_CORE_DIR}/MinecraftSkinUtil.hpp
+    ${SMM_CORE_DIR}/MsgNameTemplate.hpp
+    ${SMM_CORE_DIR}/Nutexb.hpp
+    ${SMM_CORE_DIR}/RenderLighting.hpp
+    ${SMM_CORE_DIR}/tegra_swizzle.hpp
+    ${SMM_CORE_DIR}/UiCharaDbTemplate.hpp
 )
 
 add_executable(SteveModMaker ${CLI_SOURCES} ${CLI_HEADERS})
+target_include_directories(
+    SteveModMaker
+    PRIVATE
+        ${SMM_CORE_DIR}
+        ${SMM_GENERATED_DIR}
+        ${OpenCV_INCLUDE_DIRS}
+        ${RAPIDJSON_INCLUDE_DIR}
+)
 
 target_link_libraries(SteveModMaker PRIVATE ${OpenCV_LIBRARIES})
 if(TARGET CURL::libcurl)
@@ -151,14 +161,20 @@ if(STEVE_MOD_MAKER_BUILD_GUI)
     if(STEVE_MOD_MAKER_GUI_AVAILABLE)
         add_executable(
             SteveModMakerGUI
-            CapeCatalog.cpp
-            CapeCatalog.hpp
-            CapeResources.qrc
-            GuiMain.cpp
-            GuiWindow.cpp
-            GuiWindow.hpp
+            ${SMM_CORE_DIR}/CapeCatalog.cpp
+            ${SMM_CORE_DIR}/CapeCatalog.hpp
+            ${SMM_GUI_DIR}/CapeResources.qrc
+            ${SMM_GUI_DIR}/GuiMain.cpp
+            ${SMM_GUI_DIR}/GuiWindow.cpp
+            ${SMM_GUI_DIR}/GuiWindow.hpp
         )
         add_dependencies(SteveModMakerGUI SteveModMaker)
+        target_include_directories(
+            SteveModMakerGUI
+            PRIVATE
+                ${SMM_CORE_DIR}
+                ${SMM_GUI_DIR}
+        )
         target_link_libraries(SteveModMakerGUI PRIVATE ${STEVE_MOD_MAKER_QT_WIDGETS_TARGET})
         target_compile_definitions(SteveModMakerGUI PRIVATE SMM_CLI_BINARY_NAME=\"SteveModMaker\")
     else()
