@@ -1,7 +1,7 @@
 #pragma once
 
-#include <array>
 #include <string>
+#include <vector>
 
 struct CapeCatalogEntry {
 	const char* id;
@@ -9,6 +9,6 @@ struct CapeCatalogEntry {
 	const char* texture_hash;
 };
 
-const std::array<CapeCatalogEntry, 46>& OfficialCapeCatalog();
+const std::vector<CapeCatalogEntry>& OfficialCapeCatalog();
 const CapeCatalogEntry* FindOfficialCape(const std::string& id);
 std::string OfficialCapeResourceKey(const CapeCatalogEntry& cape);

@@ -41,12 +41,12 @@ QIcon OfficialCapeIcon(const QString& cape_id) {
 		return QIcon();
 	}
 
-	// The selector shows the decorated outside face used by the generated cape
-	// model, not the inside face at (1, 1). Keep nearest-neighbor scaling so the
-	// selector shows the actual pixel art.
-	const QImage outside = atlas.copy(
-		CapeLayout::kOutsideX,
-		CapeLayout::kOutsideY,
+	// The selector shows the front-facing texture at (1, 1). The generated
+	// model keeps using the outside UV face at (12, 1); these are separate
+	// concerns because the selector is showing the worn cape to the user.
+	const QImage front = atlas.copy(
+		CapeLayout::kInsideX,
+		CapeLayout::kInsideY,
 		CapeLayout::kFaceWidth,
 		CapeLayout::kFaceHeight
 	).scaled(
@@ -55,7 +55,7 @@ QIcon OfficialCapeIcon(const QString& cape_id) {
 		Qt::KeepAspectRatio,
 		Qt::FastTransformation
 	);
-	return QIcon(QPixmap::fromImage(outside));
+	return QIcon(QPixmap::fromImage(front));
 }
 
 QString SanitizeFolderName(QString folder_name) {
@@ -96,6 +96,10 @@ GuiWindow::GuiWindow(QWidget* parent)
 	, skin_file_input_(new QLineEdit(this))
 	, skin_file_player_name_input_(new QLineEdit(this))
 	, cape_enabled_input_(new QCheckBox("Add Minecraft Cape", this))
+	, cape_warning_label_(new QLabel(
+		"Warning: Cape mode adds swing physics and may cause Wi-Fi desyncs.",
+		this
+	))
 	, cape_source_input_(new QComboBox(this))
 	, official_cape_input_(new QComboBox(this))
 	, cape_file_input_(new QLineEdit(this))
@@ -160,6 +164,9 @@ GuiWindow::GuiWindow(QWidget* parent)
 	cape_file_input_->setToolTip(
 		"Minecraft cape atlas: 64x32 pixels, with the visible 10x16 cape in the standard atlas region."
 	);
+	cape_warning_label_->setObjectName("warningLabel");
+	cape_warning_label_->setWordWrap(true);
+	cape_warning_label_->setVisible(false);
 	special_message_input_->setPlaceholderText("Optional; defaults to username");
 	slot_input_->setRange(1, 8);
 	slot_input_->setValue(1);
@@ -198,6 +205,7 @@ GuiWindow::GuiWindow(QWidget* parent)
 	settings_layout->addRow("Skin File (PNG)", skin_file_row);
 	settings_layout->addRow("Skin File Player Name", skin_file_player_name_input_);
 	settings_layout->addRow(cape_enabled_input_);
+	settings_layout->addRow(cape_warning_label_);
 	settings_layout->addRow("Cape Source", cape_source_input_);
 	settings_layout->addRow("Official Cape", official_cape_input_);
 	settings_layout->addRow("Custom Cape (PNG)", cape_file_row);
@@ -311,6 +319,7 @@ GuiWindow::GuiWindow(QWidget* parent)
 		"QWidget { background: #14171f; color: #e5e9f0; font-size: 13px; }"
 		"QLabel#titleLabel { font-size: 26px; font-weight: 700; color: #9cc9ff; }"
 		"QLabel#subtitleLabel { color: #a8b2c3; }"
+		"QLabel#warningLabel { color: #f0c674; }"
 		"QGroupBox { border: 1px solid #3b4557; border-radius: 7px; margin-top: 10px; padding-top: 10px; font-weight: 600; }"
 		"QGroupBox::title { left: 10px; padding: 0 4px; color: #c5d2e7; }"
 		"QLineEdit, QSpinBox, QComboBox, QPlainTextEdit { background: #1f2530; border: 1px solid #4a566b; border-radius: 6px; padding: 6px; color: #e9eef7; selection-background-color: #3a5372; selection-color: #f7fbff; }"
@@ -535,6 +544,7 @@ void GuiWindow::UpdateSourceModeUi() {
 	skin_file_player_name_input_->setEnabled(use_skin_file);
 	browse_skin_button_->setEnabled(use_skin_file);
 	cape_enabled_input_->setEnabled(true);
+	cape_warning_label_->setVisible(use_cape);
 	cape_source_input_->setEnabled(use_cape);
 	official_cape_input_->setEnabled(use_cape && cape_source == "official");
 	cape_file_input_->setEnabled(use_cape && cape_source == "custom");

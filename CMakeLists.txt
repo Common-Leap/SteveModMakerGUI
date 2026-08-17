@@ -8,7 +8,7 @@ file(STRINGS "${STEVE_MOD_MAKER_VERSION_FILE}" STEVE_MOD_MAKER_VERSION LIMIT_COU
 string(STRIP "${STEVE_MOD_MAKER_VERSION}" STEVE_MOD_MAKER_VERSION)
 string(REGEX REPLACE "^v" "" STEVE_MOD_MAKER_VERSION "${STEVE_MOD_MAKER_VERSION}")
 if(NOT STEVE_MOD_MAKER_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
-    message(FATAL_ERROR "VERSION must contain a semantic version such as 1.2.1")
+    message(FATAL_ERROR "VERSION must contain a semantic version such as 1.2.2")
 endif()
 
 project(SteveModMaker VERSION "${STEVE_MOD_MAKER_VERSION}" LANGUAGES CXX)

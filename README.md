@@ -10,7 +10,7 @@ I assume we are all responsible adults capable of making our own moral descision
 
 # SteveModMaker
 
-Current release: `v1.2.1`
+Current release: `v1.2.2`
 
 Generate Steve mods for Super Smash Bros. Ultimate from Minecraft skins.
 

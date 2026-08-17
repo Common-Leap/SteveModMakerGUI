@@ -6,6 +6,7 @@
 
 class QComboBox;
 class QCheckBox;
+class QLabel;
 class QLineEdit;
 class QPlainTextEdit;
 class QProcess;
@@ -30,6 +31,7 @@ private:
 	QLineEdit* skin_file_input_;
 	QLineEdit* skin_file_player_name_input_;
 	QCheckBox* cape_enabled_input_;
+	QLabel* cape_warning_label_;
 	QComboBox* cape_source_input_;
 	QComboBox* official_cape_input_;
 	QLineEdit* cape_file_input_;

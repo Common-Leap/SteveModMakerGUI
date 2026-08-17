@@ -397,9 +397,7 @@ cv::Mat CreateCapeRenderLayer(const cv::Mat& cape) {
 		return face;
 	};
 
-	// Minecraft's cape is a 10x16x1 box attached to the upper back, with the
-	// decorated outside at the shared atlas face (12, 1), not the inside at
-	// (1, 1). The top stays
+	// Minecraft's cape is a 10x16x1 box attached to the upper back. The top stays
 	// fixed behind the shoulders while the lower edge swings only slightly left.
 	// The side and bottom quads expose the box's depth, and the character is
 	// composited afterward, so the cape can never cover the chest.
@@ -422,7 +420,7 @@ cv::Mat CreateCapeRenderLayer(const cv::Mat& cape) {
 		side_quad,
 		0.72
 	);
-	cv::Mat outside = warp_face(
+	cv::Mat decorated_face = warp_face(
 		cv::Rect(CapeLayout::kOutsideX, CapeLayout::kOutsideY, CapeLayout::kFaceWidth, CapeLayout::kFaceHeight),
 		outside_quad,
 		0.90
@@ -433,7 +431,7 @@ cv::Mat CreateCapeRenderLayer(const cv::Mat& cape) {
 		0.60
 	);
 	OverlayImage(layer, side, cv::Point(0, 0));
-	OverlayImage(layer, outside, cv::Point(0, 0));
+	OverlayImage(layer, decorated_face, cv::Point(0, 0));
 	OverlayImage(layer, bottom, cv::Point(0, 0));
 	return layer;
 }
@@ -945,6 +943,9 @@ int main(int argc, char* argv[]) {
 		if (cape_enabled && cape_source_count != 1) {
 			std::cerr << "Error: A cape option requires a non-empty cape source value" << std::endl;
 			return -1;
+		}
+		if (cape_enabled) {
+			std::cerr << "Warning: Cape mode adds swing physics and may cause Wi-Fi desyncs." << std::endl;
 		}
 		if (!use_skin_file && !IsValidMinecraftUsername(skin_source)) {
 			std::cerr << "Error: Minecraft username must be 1-16 letters, numbers, or underscores" << std::endl;

@@ -2,8 +2,8 @@
 
 #include <algorithm>
 
-const std::array<CapeCatalogEntry, 46>& OfficialCapeCatalog() {
-	static const std::array<CapeCatalogEntry, 46> capes = {{
+const std::vector<CapeCatalogEntry>& OfficialCapeCatalog() {
+	static const std::vector<CapeCatalogEntry> capes = {
 		{"migrator", "Migrator", "2340c0e03dd24a11b15a8b33c2a7e9e32abb2051b2481d0ba7defd635ca7a933"},
 		{"pan", "Pan", "28de4a81688ad18b49e735a273e086c18f1e3966956123ccb574034c06f5d336"},
 		{"15th-anniversary", "15th Anniversary", "cd9d82ab17fd92022dbd4a86cde4c382a7540e117fae7b9a2853658505a80625"},
@@ -50,7 +50,7 @@ const std::array<CapeCatalogEntry, 46>& OfficialCapeCatalog() {
 		{"spade", "Spade", "2e002d5e1758e79ba51d08d92a0f3a95119f2f435ae7704916507b6c565a7da8"},
 		{"translator-japanese", "Translator (Japanese)", "ca29f5dd9e94fb1748203b92e36b66fda80750c87ebc18d6eafdb0e28cc1d05f"},
 		{"blueprint", "Blueprint", "fdcf48f01ec480d1d7cbec27f7ddce48c9da2be6724641109444dae58d4cd013"},
-	}};
+	};
 	return capes;
 }
 

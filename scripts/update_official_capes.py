@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Download the checked-in official Minecraft cape atlases.
 
-The catalog and texture hashes live in CapeCatalog.cpp. This script downloads
+The catalog and texture hashes live in src/core/CapeCatalog.cpp. This script downloads
 the corresponding PNGs from Mojang's texture service and verifies every atlas
 is the canonical 64x32 size used by Minecraft Java Edition.
 
@@ -17,10 +17,11 @@ from urllib.request import Request, urlopen
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CATALOG = ROOT / "CapeCatalog.cpp"
+CATALOG = ROOT / "src" / "core" / "CapeCatalog.cpp"
 OUTPUT = ROOT / "Resources" / "capes"
 ENTRY = re.compile(
-    r'\{"(?P<id>[a-z0-9-]+)",\s*"(?P<name>[^"]+)",\s*"(?P<hash>[0-9a-f]{32,64})"\},'
+	r'^\s*\{"(?P<id>[a-z0-9-]+)",\s*"(?P<name>[^"]+)",\s*"(?P<hash>[0-9a-f]{32,64})"\},\s*$',
+    re.MULTILINE,
 )
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -32,9 +33,16 @@ def png_size(data: bytes) -> tuple[int, int]:
 
 
 def main() -> None:
-    entries = list(ENTRY.finditer(CATALOG.read_text(encoding="utf-8")))
-    if len(entries) != 46:
-        raise SystemExit(f"expected 46 cape entries, found {len(entries)}")
+    catalog_text = CATALOG.read_text(encoding="utf-8")
+    entries = list(ENTRY.finditer(catalog_text))
+    if not entries:
+        raise SystemExit(f"no cape entries found in {CATALOG}")
+    catalog_entry_lines = [line for line in catalog_text.splitlines() if '{"' in line]
+    if len(entries) != len(catalog_entry_lines):
+        raise SystemExit(f"could not parse every cape entry in {CATALOG}")
+    ids = [entry.group("id") for entry in entries]
+    if len(ids) != len(set(ids)):
+        raise SystemExit(f"duplicate cape ID in {CATALOG}")
 
     OUTPUT.mkdir(parents=True, exist_ok=True)
     expected_files: set[Path] = set()
